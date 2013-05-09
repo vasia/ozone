@@ -16,8 +16,9 @@ public class BulkIterationGeneric extends BulkIteration {
 	
 	private Contract dependencySet;
 	private static String dependencySetKeyIndex = "DEPENDENCYSET_KEY_INDEX" ;
-	private MatchContract computeDependencies;
-	private ReduceContract updateValues;
+	private MatchContract dependenciesComputation;
+	private ReduceContract valuesUpdate;
+	private MatchContract oldValueComparison;
 
 	/**
 	 * @param solutionSet
@@ -35,13 +36,32 @@ public class BulkIterationGeneric extends BulkIteration {
 	}
 	
 	
-	
-	
 	/**
 	 * @param <T>
 	 * @param criterion
 	 */
 	public <T extends Value> void setConvergenceCriterion(String name, Class<? extends Aggregator<T>> aggregator,Class<? extends ConvergenceCriterion<T>> convergenceCheck) {
 		this.getAggregators().registerAggregationConvergenceCriterion(name, aggregator, convergenceCheck);
+	}
+	
+	/**
+	 * @param dependencyMatch
+	 */
+	public void setDependencyComputation(MatchContract dependencyMatch){
+		dependenciesComputation = dependencyMatch;
+	}
+	
+	/**
+	 * @param updateReduce
+	 */
+	public void setValuesUpdate(ReduceContract updateReduce){
+		valuesUpdate = updateReduce;
+	}
+	
+	/**
+	 * @param comparisonMatch
+	 */
+	public void setOldValueComparison(MatchContract comparisonMatch){
+		oldValueComparison = comparisonMatch;
 	}
 }
