@@ -7,7 +7,6 @@ import eu.stratosphere.pact.common.stubs.aggregators.ConvergenceCriterion;
 import eu.stratosphere.pact.common.type.Value;
 import eu.stratosphere.pact.generic.contract.BulkIteration;
 import eu.stratosphere.pact.generic.contract.Contract;
-import eu.stratosphere.pact.incremental.plans.BulkIterationPlan;
 
 /**
  * @author Vasia Kalavri
@@ -65,10 +64,24 @@ public class BulkIterationGeneric extends BulkIteration {
 	}
 	
 	/**
+	 * @return dependenciesComputation
+	 */
+	public MatchContract getDependencyComputation(){
+		return dependenciesComputation;
+	}
+	
+	/**
 	 * @param updateReduce
 	 */
 	public void setValuesUpdate(ReduceContract updateReduce){
 		valuesUpdate = updateReduce;
+	}
+	
+	/**
+	 * @return valuesUpdate
+	 */
+	public ReduceContract getValuesUpdate(){
+		return valuesUpdate;
 	}
 	
 	/**
@@ -77,9 +90,12 @@ public class BulkIterationGeneric extends BulkIteration {
 	public void setOldValueComparison(MatchContract comparisonMatch){
 		oldValueComparison = comparisonMatch;
 	}
-
-	public BulkIterationPlan getPlan() {
-
-		return null;
+	
+	/**
+	 * @return oldValueComparison
+	 */
+	public MatchContract getOldValueComparison(){
+		return oldValueComparison;
 	}
+
 }
