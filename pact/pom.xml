@@ -95,5 +95,6 @@
 		<module>pact-examples</module>
 		<module>pact-tests</module>
 		<module>pact-array-datamodel</module>
+		<module>pact-incremental</module>
 	</modules>
 </project>

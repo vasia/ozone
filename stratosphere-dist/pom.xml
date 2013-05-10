@@ -29,11 +29,6 @@
 		</dependency>
 		<dependency>
 			<groupId>eu.stratosphere</groupId>
-			<artifactId>nephele-examples</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>eu.stratosphere</groupId>
 			<artifactId>nephele-hdfs</artifactId>
 			<version>${project.version}</version>
 		</dependency>
