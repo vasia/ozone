@@ -1,6 +1,5 @@
 package eu.stratosphere.pact.incremental.plans;
 
-import eu.stratosphere.pact.common.contract.GenericDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSource;
 import eu.stratosphere.pact.common.stubs.CoGroupStub;
 import eu.stratosphere.pact.common.stubs.MatchStub;

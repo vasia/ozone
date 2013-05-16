@@ -21,7 +21,7 @@ public class DependencyIteration extends WorksetIteration {
 	private Contract dependencySet;	//the Dependency set input
 	
 	/**
-	 * Sets the contract of the DependencySet
+	 * Sets the contract of the dependency set
 	 * 
 	 * @param delta The contract representing the dependencies / graph structure
 	 */
