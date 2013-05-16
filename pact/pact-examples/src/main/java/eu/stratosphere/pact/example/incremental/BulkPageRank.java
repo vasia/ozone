@@ -1,11 +1,13 @@
 package eu.stratosphere.pact.example.incremental;
 
+import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.FileDataSource;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
 import eu.stratosphere.pact.example.pagerank.DanglingPageRankInputFormat;
 import eu.stratosphere.pact.example.pagerank.ImprovedAdjacencyListInputFormat;
+import eu.stratosphere.pact.example.pagerank.PageWithRankOutFormat;
 import eu.stratosphere.pact.incremental.contracts.BulkIterationGeneric;
 import eu.stratosphere.pact.incremental.plans.BulkIterationPlan;
 	
@@ -44,7 +46,9 @@ public class BulkPageRank implements PlanAssembler, PlanAssemblerDescription {
 		iteration.setInitialSolutionSet(pageWithRankInput);
 		iteration.setDependencySet(adjacencyListInput);
 		
-		BulkIterationPlan p = iteration.getPlan();
+		FileDataSink out = new FileDataSink(PageWithRankOutFormat.class, outputPath, iteration, "Final Ranks");
+		
+		BulkIterationPlan p = new BulkIterationPlan(out, "Bulk PageRank", iteration);
 		p.setDefaultParallelism(dop);
 		return p;
 	}
