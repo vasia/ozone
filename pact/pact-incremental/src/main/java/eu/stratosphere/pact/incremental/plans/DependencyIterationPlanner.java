@@ -12,9 +12,10 @@ import eu.stratosphere.pact.common.type.Key;
  * a dependency iteration plan
  *
  */
+
 public interface DependencyIterationPlanner {
 
-	public void setupDependencyIteration(GenericDataSource<?> initialSolutionSet, 
+	public void setUpDependencyIteration(GenericDataSource<?> initialSolutionSet, 
 			GenericDataSource<?> initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName);
 	
 	public void setUpCandidatesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);

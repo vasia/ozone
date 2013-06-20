@@ -33,7 +33,7 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 	}
 
 	@Override
-	public void setupDependencyIteration(GenericDataSource<?> initialSolutionSet,
+	public void setUpDependencyIteration(GenericDataSource<?> initialSolutionSet,
 			GenericDataSource<?> initialWorkSet,
 			GenericDataSource<?> dependencySet, int keyPosition, String jobName) {
 

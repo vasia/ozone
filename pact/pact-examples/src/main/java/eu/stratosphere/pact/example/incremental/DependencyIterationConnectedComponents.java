@@ -104,7 +104,7 @@ public class DependencyIterationConnectedComponents implements PlanAssembler,
 		DependencyIterationPlan plan = new DependencyIterationPlan(result, "");
 		
 		//setup the Contracts of the plan
-		plan.setupDependencyIteration(initialVertices, initialVertices, edges, 0, "Dependency Workset Connected Components");
+		plan.setUpDependencyIteration(initialVertices, initialVertices, edges, 0, "Dependency Workset Connected Components");
 		plan.setUpCandidatesMatch(WorkSetWithDependenciesJoin.class, PactLong.class, 0, 0);
 		plan.setUpCandidatesReduce(GroupCandidatesReduce.class, PactLong.class, 0);
 		plan.setUpDependenciesMatch(RetrieveDependenciesJoin.class, PactLong.class, 0, 0);
