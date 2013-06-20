@@ -12,7 +12,7 @@ import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.generic.contract.Contract;
-import eu.stratosphere.pact.incremental.contracts.DependencyIteration;
+import eu.stratosphere.pact.incremental.contracts.DependencyIterationContract;
 
 /**
  * 
@@ -21,7 +21,7 @@ import eu.stratosphere.pact.incremental.contracts.DependencyIteration;
  */
 public class DependencyIterationPlan extends Plan implements DependencyIterationPlanner{
 
-	private DependencyIteration iteration;
+	private DependencyIterationContract iteration;
 	private MatchContract candidatesMatch;
 	private ReduceContract candidatesReduce;
 	private MatchContract dependenciesMatch;
@@ -37,7 +37,7 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 			GenericDataSource<?> initialWorkSet,
 			GenericDataSource<?> dependencySet, int keyPosition, String jobName) {
 
-		iteration = new DependencyIteration(keyPosition, jobName);
+		iteration = new DependencyIterationContract(keyPosition, jobName);
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);
 		iteration.setInitialWorkset(initialWorkSet);	

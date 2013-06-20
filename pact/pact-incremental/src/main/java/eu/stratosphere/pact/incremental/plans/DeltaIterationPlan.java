@@ -9,8 +9,8 @@ import eu.stratosphere.pact.common.stubs.CoGroupStub;
 import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.generic.contract.Contract;
-import eu.stratosphere.pact.incremental.contracts.DeltaIteration;
-import eu.stratosphere.pact.incremental.contracts.DependencyIteration;
+import eu.stratosphere.pact.incremental.contracts.DeltaIterationContract;
+import eu.stratosphere.pact.incremental.contracts.DependencyIterationContract;
 
 /**
  * 
@@ -22,7 +22,7 @@ import eu.stratosphere.pact.incremental.contracts.DependencyIteration;
  */
 public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 
-	private DeltaIteration iteration;
+	private DeltaIterationContract iteration;
 	private MatchContract candidatesMatch;
 	private CoGroupContract updateCoGroup;
 	
@@ -35,7 +35,7 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 	public void setDeltaIteration(Contract initialSolutionSet,
 			Contract initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName) {
 		
-		iteration = new DeltaIteration(keyPosition, jobName);
+		iteration = new DeltaIterationContract(keyPosition, jobName);
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);
 		iteration.setInitialWorkset(initialWorkSet);	
