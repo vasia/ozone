@@ -1,13 +1,11 @@
 package eu.stratosphere.pact.incremental.plans;
 
-import eu.stratosphere.pact.common.contract.CoGroupContract;
 import eu.stratosphere.pact.common.contract.GenericDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSource;
 import eu.stratosphere.pact.common.contract.MatchContract;
 import eu.stratosphere.pact.common.contract.ReduceContract;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanException;
-import eu.stratosphere.pact.common.stubs.CoGroupStub;
 import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.Key;
@@ -15,18 +13,40 @@ import eu.stratosphere.pact.generic.contract.Contract;
 import eu.stratosphere.pact.incremental.contracts.DependencyIterationContract;
 
 /**
+ *	This is the Plan for a Workset (Dependency) Iteration
+ *	The internal plan of the DependencyterationContract is built as follows:
  * 
- * a template plan for the dependency incremental iterations
+ * 
+ *	 	=========== *Match*: oldValueComparison
+ *		|	|				|		|
+ *		|	|				|		|
+ *		|	|				|	*Reduce*: valuesUpdate (aggregate update function)
+ *		|	|				|					|
+ *		|	|				|					|
+ *		|	|				|	*Match*: dependencies computation
+ *		|	|				|				|				|
+ *		|	|				|				|				|
+ *		|	=========> S: solutionSet		|			D: dependencySet
+ *		|									|
+ *		|									|
+ *		|						*Reduce*: group Candidates
+ *		|									|
+ *		|									|
+ *		|						*Match*: find candidates for re-computation
+ *		|							|						|
+ * 		|							|						|
+ *		|==================== W: workSet			D: dependencySet	
  *
  */
+
 public class DependencyIterationPlan extends Plan implements DependencyIterationPlanner{
 
 	private DependencyIterationContract iteration;
 	private MatchContract candidatesMatch;
 	private ReduceContract candidatesReduce;
 	private MatchContract dependenciesMatch;
-	private MatchContract solutionSetMatch;
-	private CoGroupContract updateCoGroup;
+	private ReduceContract updateReduce;
+	private MatchContract comparisonMatch;
 	
 	public DependencyIterationPlan(GenericDataSink sink, String jobName) {
 		super(sink, jobName);
@@ -71,31 +91,31 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 				.name("Join grouped Candidates with Dependency Set")
 				.build();
 	}
+	
+	@Override
+	public void setUpUpdateReduce(Class<? extends ReduceStub> udf,
+			Class<? extends Key> keyClass, int keyColumn) {
+		updateReduce = ReduceContract.builder(udf, keyClass, keyColumn)
+		.input(dependenciesMatch)
+		.name("Update Function")
+		.build();
+	}
 
 	@Override
-	public void setUpSolutionSetMatch(Class<? extends MatchStub> udf,
+	public void setUpComparisonMatch(Class<? extends MatchStub> udf,
 			Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
-		solutionSetMatch = MatchContract.builder(udf, keyClass, keyColumn1, keyColumn2)
-				.input1(dependenciesMatch)
+		comparisonMatch = MatchContract.builder(udf, keyClass, keyColumn1, keyColumn2)
+				.input1(updateReduce)
 				.input2(iteration.getSolutionSet())
 				.name("Join with Solution Set")
 				.build();
 	}
 
-	@Override
-	public void setUpCoGroup(Class<? extends CoGroupStub> udf,
-			Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
-		updateCoGroup = CoGroupContract.builder(udf, keyClass, keyColumn1, keyColumn2)
-				.input1(solutionSetMatch)
-				.input2(iteration.getSolutionSet())
-				.name("Update CoGroup")
-				.build();
-	}
 
 	@Override
 	public void assemble() {
-		iteration.setNextWorkset(updateCoGroup);
-		iteration.setSolutionSetDelta(updateCoGroup);		
+		iteration.setNextWorkset(comparisonMatch);
+		iteration.setSolutionSetDelta(comparisonMatch);		
 	}
 
 	public Contract getIteration() throws PlanException {

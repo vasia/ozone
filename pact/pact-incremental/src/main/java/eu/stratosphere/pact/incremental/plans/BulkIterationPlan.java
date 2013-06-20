@@ -17,13 +17,13 @@ import eu.stratosphere.pact.incremental.contracts.BulkIterationContract;
  *	The internal plan of the BulkIterationContract is built as follows:
  * 
  * 
- * 		======== Match:	oldValueComparison
+ * 		======== *Match*: oldValueComparison
  *		|				|		|
  *		|				|		|
- *		|				|	Reduce:	valuesUpdate (aggregate update function)
+ *		|				|	*Reduce*: valuesUpdate (aggregate update function)
  *		|				|					|
  *		|				|					|
- *		|				|	Match:	dependencies computation
+ *		|				|	*Match*: dependencies computation
  *		|				|	|							|
  *		|				|	|							|
  *		=========> S: solutionSet					D: dependencySet
