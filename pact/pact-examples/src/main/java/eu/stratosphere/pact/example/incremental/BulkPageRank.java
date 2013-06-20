@@ -8,7 +8,7 @@ import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
 import eu.stratosphere.pact.example.pagerank.DanglingPageRankInputFormat;
 import eu.stratosphere.pact.example.pagerank.ImprovedAdjacencyListInputFormat;
 import eu.stratosphere.pact.example.pagerank.PageWithRankOutFormat;
-import eu.stratosphere.pact.incremental.contracts.BulkIterationGeneric;
+import eu.stratosphere.pact.incremental.contracts.BulkIterationContract;
 import eu.stratosphere.pact.incremental.plans.BulkIterationPlan;
 	
 public class BulkPageRank implements PlanAssembler, PlanAssemblerDescription {
@@ -40,7 +40,7 @@ public class BulkPageRank implements PlanAssembler, PlanAssemblerDescription {
 		
 		FileDataSource adjacencyListInput = new FileDataSource(ImprovedAdjacencyListInputFormat.class, adjacencyListInputPath, "AdjancencyListInput");
 			
-		BulkIterationGeneric iteration = new BulkIterationGeneric("Bulk PageRank");
+		BulkIterationContract iteration = new BulkIterationContract("Bulk PageRank");
 		
 		//configure Bulk Iteration
 		iteration.setInitialSolutionSet(pageWithRankInput);
@@ -48,7 +48,8 @@ public class BulkPageRank implements PlanAssembler, PlanAssemblerDescription {
 		
 		FileDataSink out = new FileDataSink(PageWithRankOutFormat.class, outputPath, iteration, "Final Ranks");
 		
-		BulkIterationPlan p = new BulkIterationPlan(out, "Bulk PageRank", iteration);
+		BulkIterationPlan p = new BulkIterationPlan(out, "Bulk PageRank");
+		p.setUpBulkIteration(pageWithRankInput, adjacencyListInput, 0);	//TODO: fix keyPosition
 		p.setDefaultParallelism(dop);
 		return p;
 	}
