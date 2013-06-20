@@ -12,6 +12,7 @@ import eu.stratosphere.pact.generic.contract.WorksetIteration;
  * and recompute only these in the next iteration 
  * 
  */
+
 public class DependencyIterationContract extends WorksetIteration {
 	
 	public DependencyIterationContract(int keyPosition, String name) {
@@ -23,7 +24,7 @@ public class DependencyIterationContract extends WorksetIteration {
 	/**
 	 * Sets the contract of the dependency set
 	 * 
-	 * @param delta The contract representing the dependencies / graph structure
+	 * @param dependencies The contract representing the dependencies / graph structure
 	 */
 	public void setDependencySet(Contract dependencies) {
 		dependencySet = dependencies;
