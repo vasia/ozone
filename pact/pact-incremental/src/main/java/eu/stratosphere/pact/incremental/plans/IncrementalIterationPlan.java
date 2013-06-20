@@ -10,7 +10,6 @@ import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.generic.contract.Contract;
-import eu.stratosphere.pact.incremental.contracts.DependencyIterationContract;
 import eu.stratosphere.pact.incremental.contracts.IncrementalIterationContract;
 
 /**
@@ -68,7 +67,7 @@ public class IncrementalIterationPlan extends Plan implements IncrementalIterati
 		
 	}
 
-
+	
 	@Override
 	public void setUpUpdateReduce(Class<? extends ReduceStub> udf,
 			Class<? extends Key> keyClass, int keyColumn) {
@@ -97,7 +96,7 @@ public class IncrementalIterationPlan extends Plan implements IncrementalIterati
 	}
 	
 	public Contract getIteration() throws PlanException {
-		if(this.iteration.isConfigured()) return this.iteration;
+		if(iteration.isConfigured()) return this.iteration;
 		else throw new PlanException("The dependency Iteration is not properly configured -- Forgot to assemble?");
 		
 	}

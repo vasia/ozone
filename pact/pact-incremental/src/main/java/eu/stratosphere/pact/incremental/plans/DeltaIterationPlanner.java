@@ -1,8 +1,9 @@
 package eu.stratosphere.pact.incremental.plans;
 
 import eu.stratosphere.pact.common.contract.GenericDataSource;
-import eu.stratosphere.pact.common.stubs.CoGroupStub;
+import eu.stratosphere.pact.common.stubs.MapStub;
 import eu.stratosphere.pact.common.stubs.MatchStub;
+import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.generic.contract.Contract;
 
@@ -14,11 +15,17 @@ import eu.stratosphere.pact.generic.contract.Contract;
 */
 public interface DeltaIterationPlanner {
 	
-	public void setDeltaIteration(Contract initialSolutionSet, Contract initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName);
+	public void setUpDeltaIteration(Contract initialSolutionSet, Contract initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName);
 	
-	public void setCandidatesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
+	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
+
+	public void setUpUpdateReduce(Class<? extends ReduceStub> udf, Class<? extends Key> keyClass, int keyColumn);
 	
-	public void setUpCoGroup(Class<? extends CoGroupStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
+	public void setUpComparisonMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
+
+	public void setUpUpdateSolutionSetMap(Class<? extends MapStub> udf);
+	
+	public void setUpUpdateDeltaSetMap(Class<? extends MapStub> udf);
 	
 	// finalizes the plan
 	public void assemble();

@@ -1,5 +1,6 @@
 package eu.stratosphere.pact.incremental.contracts;
 
+import eu.stratosphere.pact.common.plan.PlanException;
 import eu.stratosphere.pact.generic.contract.Contract;
 import eu.stratosphere.pact.generic.contract.WorksetIteration;
 
@@ -34,5 +35,25 @@ private Contract dependencySet;	//the Dependency set input
 	public Contract getDependencySet() {
 		return this.dependencySet;
 	}
+	
+	/**
+	 * checks if the delta iteration has been configured properly
+	 * @return true if properly configured
+	 */
+	public boolean isConfigured() {
+		if (getDependencySet()== null)
+			throw new PlanException("The dependency Set is empty");
+		else if(getInitialWorkset() == null)
+			throw new PlanException("The initial WorkSet (DeltaSet) is empty");
+		else if(getInitialSolutionSet() == null)
+			throw new PlanException("The initial SolutionSet is empty");
+		else if(getNextWorkset() == null)
+			throw new PlanException("Next WorkSet (DeltaSet) is empty");
+		else if(getSolutionSetDelta() == null)
+			throw new PlanException("SolutionSetDelta is empty");
+		else
+			return true;			
+	}
+
 
 }
