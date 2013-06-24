@@ -48,16 +48,15 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 	private ReduceContract updateReduce;
 	private MatchContract comparisonMatch;
 	
-	public DependencyIterationPlan(GenericDataSink sink, String jobName) {
+	public DependencyIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
+		iteration = new DependencyIterationContract(keyPosition, jobName);
 	}
 
 	@Override
 	public void setUpDependencyIteration(GenericDataSource<?> initialSolutionSet,
-			GenericDataSource<?> initialWorkSet,
-			GenericDataSource<?> dependencySet, int keyPosition, String jobName) {
+			GenericDataSource<?> initialWorkSet, GenericDataSource<?> dependencySet) {
 
-		iteration = new DependencyIterationContract(keyPosition, jobName);
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);
 		iteration.setInitialWorkset(initialWorkSet);	
@@ -119,7 +118,7 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 	}
 
 	public Contract getIteration() throws PlanException {
-		if(this.iteration.isConfigured()) return this.iteration;
+		if(iteration.isConfigured()) return iteration;
 		else throw new PlanException("The dependency Iteration is not properly configured -- Forgot to assemble?");
 		
 	}

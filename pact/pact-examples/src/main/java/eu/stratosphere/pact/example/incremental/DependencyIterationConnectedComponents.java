@@ -101,15 +101,15 @@ public class DependencyIterationConnectedComponents implements PlanAssembler,
 		// create DataSink
 		FileDataSink result = new FileDataSink(RecordOutputFormat.class, output);
 
-		DependencyIterationPlan plan = new DependencyIterationPlan(result, "");
+		DependencyIterationPlan plan = new DependencyIterationPlan(result, "Dependency Workset Connected Components", 0);
 		
 		//setup the Contracts of the plan
-		plan.setUpDependencyIteration(initialVertices, initialVertices, edges, 0, "Dependency Workset Connected Components");
+		plan.setUpDependencyIteration(initialVertices, initialVertices, edges);
 		plan.setUpCandidatesMatch(WorkSetWithDependenciesJoin.class, PactLong.class, 0, 0);
 		plan.setUpCandidatesReduce(GroupCandidatesReduce.class, PactLong.class, 0);
 		plan.setUpDependenciesMatch(RetrieveDependenciesJoin.class, PactLong.class, 0, 0);
-		plan.setUpSolutionSetMatch(RetrieveSolutionSetValuesJoin.class, PactLong.class, 0, 0);
-		plan.setUpCoGroup(updateCoGroup.class, PactLong.class, 0, 0);
+	//	plan.setUpSolutionSetMatch(RetrieveSolutionSetValuesJoin.class, PactLong.class, 0, 0);
+	//	plan.setUpCoGroup(updateCoGroup.class, PactLong.class, 0, 0);
 		
 		result.setInput(plan.getIteration());
 		

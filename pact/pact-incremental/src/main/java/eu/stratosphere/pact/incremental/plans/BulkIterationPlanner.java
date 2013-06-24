@@ -14,8 +14,7 @@ import eu.stratosphere.pact.common.type.Key;
 
 public interface BulkIterationPlanner {
 
-	public void setUpBulkIteration(GenericDataSource<?> initialSolutionSet, 
-			GenericDataSource<?> dependencySet, int keyPosition);
+	public void setUpBulkIteration(GenericDataSource<?> initialSolutionSet, GenericDataSource<?> dependencySet);
 	
 	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
 	

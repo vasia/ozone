@@ -39,17 +39,15 @@ public class IncrementalIterationPlan extends Plan implements IncrementalIterati
 	private ReduceContract updateReduce;
 	private MatchContract comparisonMatch;
 	
-	public IncrementalIterationPlan(GenericDataSink sink, String jobName) {
+	public IncrementalIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
+		iteration = new IncrementalIterationContract(keyPosition, jobName);
 	}
 
 	@Override
 	public void setUpIncrementalIteration(
-			GenericDataSource<?> initialSolutionSet,
-			GenericDataSource<?> initialWorkSet,
-			GenericDataSource<?> dependencySet, int keyPosition, String jobName) {
+			GenericDataSource<?> initialSolutionSet, GenericDataSource<?> initialWorkSet, GenericDataSource<?> dependencySet) {
 		
-		iteration = new IncrementalIterationContract(keyPosition, jobName);
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);
 		iteration.setInitialWorkset(initialWorkSet);	

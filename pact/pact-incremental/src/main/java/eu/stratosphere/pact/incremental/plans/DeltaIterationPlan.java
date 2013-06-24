@@ -56,15 +56,15 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 	private MapContract updateDeltaSetMap;
 	
 	
-	public DeltaIterationPlan(GenericDataSink sink, String jobName) {
+	public DeltaIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
+		iteration = new DeltaIterationContract(keyPosition, jobName);
 	}
 
 	@Override
 	public void setUpDeltaIteration(Contract initialSolutionSet,
-			Contract initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName) {
-
-		iteration = new DeltaIterationContract(keyPosition, jobName);
+			Contract initialWorkSet, GenericDataSource<?> dependencySet) {
+		
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);
 		iteration.setInitialWorkset(initialWorkSet);	
@@ -127,7 +127,7 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 	}
 	
 	public Contract getIteration() throws PlanException {
-		if(this.iteration.isConfigured()) return iteration;
+		if(iteration.isConfigured()) return iteration;
 		else throw new PlanException("The dependency Iteration is not properly configured -- Forgot to assemble?");
 		
 	}

@@ -48,8 +48,8 @@ public class BulkPageRank implements PlanAssembler, PlanAssemblerDescription {
 		
 		FileDataSink out = new FileDataSink(PageWithRankOutFormat.class, outputPath, iteration, "Final Ranks");
 		
-		BulkIterationPlan p = new BulkIterationPlan(out, "Bulk PageRank");
-		p.setUpBulkIteration(pageWithRankInput, adjacencyListInput, 0);	//TODO: fix keyPosition
+		BulkIterationPlan p = new BulkIterationPlan(out, "Bulk PageRank", 0); //TODO: fix keyPosition
+		p.setUpBulkIteration(pageWithRankInput, adjacencyListInput);	
 		p.setDefaultParallelism(dop);
 		return p;
 	}

@@ -15,7 +15,7 @@ import eu.stratosphere.pact.common.type.Key;
 public interface IncrementalIterationPlanner {
 
 	public void setUpIncrementalIteration(GenericDataSource<?> initialSolutionSet, 
-			GenericDataSource<?> initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName);
+			GenericDataSource<?> initialWorkSet, GenericDataSource<?> dependencySet);
 	
 	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
 	
