@@ -40,15 +40,15 @@ public class BulkIterationPlan extends Plan implements BulkIterationPlanner {
 	private ReduceContract updateReduce;
 	private MatchContract comparisonMatch;
 
-	public BulkIterationPlan(GenericDataSink sink, String jobName) {
+	public BulkIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
+		iteration = new BulkIterationContract(keyPosition);
 	}
 
 	@Override
 	public void setUpBulkIteration(GenericDataSource<?> initialSolutionSet,
-			GenericDataSource<?> dependencySet, int keyPosition) {
+			GenericDataSource<?> dependencySet) {
 
-		iteration = new BulkIterationContract(keyPosition);
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);	
 	}

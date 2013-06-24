@@ -15,7 +15,7 @@ import eu.stratosphere.pact.generic.contract.Contract;
 */
 public interface DeltaIterationPlanner {
 	
-	public void setUpDeltaIteration(Contract initialSolutionSet, Contract initialWorkSet, GenericDataSource<?> dependencySet, int keyPosition, String jobName);
+	public void setUpDeltaIteration(Contract initialSolutionSet, Contract initialWorkSet, GenericDataSource<?> dependencySet);
 	
 	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
 
