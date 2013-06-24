@@ -51,7 +51,7 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 
 	private DeltaIterationContract iteration;
 	
-	// Delta iteration parameters
+	// Delta Iteration Parameters
 	private Contract initialSolutionSet;
 	private Contract initialWorkSet;
 	
@@ -62,14 +62,14 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 	private MapContract updateSolutionSetMap;
 	private MapContract updateDeltaSetMap;
 	
-	// initial Bulk Iteration Contracts
+	// Initial Bulk Iteration Contracts
 	private MatchContract bulkDependenciesMatch;
 	private ReduceContract bulkUpdateReduce;
 	private MatchContract bulkComparisonMatch;
 	private MapContract bulkUpdateSolutionSetMap;
 	private MapContract bulkUpdateDeltaSetMap;
 	
-	// Contract parameters to be used by both the Bulk and the Delta Plans
+	// Contract Parameters to be used by both the Bulk and the Delta Plans
 	private Class<? extends MatchStub> dependencyUdf;
 	private Class<? extends Key> dependencyKeyClass;
 	private int dependencyKeyCol1;
