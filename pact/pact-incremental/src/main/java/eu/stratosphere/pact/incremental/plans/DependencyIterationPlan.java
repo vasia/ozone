@@ -1,5 +1,6 @@
 package eu.stratosphere.pact.incremental.plans;
 
+import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSource;
 import eu.stratosphere.pact.common.contract.MatchContract;
@@ -51,6 +52,11 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 	public DependencyIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
 		iteration = new DependencyIterationContract(keyPosition, jobName);
+	}
+
+	public DependencyIterationPlan(FileDataSink sink, String jobName) {
+		super(sink, jobName);
+		iteration = new DependencyIterationContract(0, jobName);	//AVK: there is no constructor for the WorksetIteration Contract without a keyPosition arg. Is there a reason for that?
 	}
 
 	@Override
@@ -115,6 +121,11 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 	public void assemble() {
 		iteration.setNextWorkset(comparisonMatch);
 		iteration.setSolutionSetDelta(comparisonMatch);		
+		this.getDataSinks().iterator().next().addInput(getIteration());
+	}
+	
+	public void setMaxIterations(int maxIterations){
+		iteration.setMaximumNumberOfIterations(maxIterations);
 	}
 
 	public Contract getIteration() throws PlanException {
