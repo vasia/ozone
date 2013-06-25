@@ -10,7 +10,6 @@
 	</parent>
 
   <artifactId>pact-incremental</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
   <name>pact-incremental</name>
   <packaging>jar</packaging>
   <dependencies>

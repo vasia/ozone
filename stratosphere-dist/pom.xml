@@ -87,6 +87,11 @@
 			<artifactId>pact-runtime</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>eu.stratosphere</groupId>
+			<artifactId>pact-incremental</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 	</dependencies>
 
 	<build>
