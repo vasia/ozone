@@ -40,22 +40,24 @@ public class BulkIterationPlan extends Plan implements BulkIterationPlanner {
 	private ReduceContract updateReduce;
 	private MatchContract comparisonMatch;
 
+	public BulkIterationPlan(GenericDataSink sink, String jobName) {
+		super(sink, jobName);
+		iteration = new BulkIterationContract(jobName);
+	}
+	
 	public BulkIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
 		iteration = new BulkIterationContract(keyPosition);
 	}
 
 	@Override
-	public void setUpBulkIteration(GenericDataSource<?> initialSolutionSet,
-			GenericDataSource<?> dependencySet) {
-
+	public void setUpBulkIteration(GenericDataSource<?> initialSolutionSet, GenericDataSource<?> dependencySet) {
 		iteration.setDependencySet(dependencySet);
 		iteration.setInitialSolutionSet(initialSolutionSet);	
 	}
 
 	@Override
-	public void setUpDependenciesMatch(Class<? extends MatchStub> udf,
-			Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
+	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
 		dependencyMatch = MatchContract.builder(udf, keyClass, keyColumn1, keyColumn2)
 				.input1(iteration.getPartialSolution())
 				.input2(iteration.getDependencySet())
@@ -85,6 +87,11 @@ public class BulkIterationPlan extends Plan implements BulkIterationPlanner {
 	@Override
 	public void assemble() {
 		iteration.setNextPartialSolution(comparisonMatch);		
+		this.getDataSinks().iterator().next().addInput(getIteration());
+	}
+	
+	public void setMaxIterations(int maxIterations){
+		iteration.setMaximumNumberOfIterations(maxIterations);
 	}
 	
 	public Contract getIteration() throws PlanException {

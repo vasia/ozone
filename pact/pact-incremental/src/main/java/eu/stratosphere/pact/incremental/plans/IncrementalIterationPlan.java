@@ -1,5 +1,6 @@
 package eu.stratosphere.pact.incremental.plans;
 
+import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSource;
 import eu.stratosphere.pact.common.contract.MatchContract;
@@ -42,6 +43,11 @@ public class IncrementalIterationPlan extends Plan implements IncrementalIterati
 	public IncrementalIterationPlan(GenericDataSink sink, String jobName, int keyPosition) {
 		super(sink, jobName);
 		iteration = new IncrementalIterationContract(keyPosition, jobName);
+	}
+
+	public IncrementalIterationPlan(FileDataSink sink, String jobName) {
+		super(sink, jobName);
+		iteration = new IncrementalIterationContract(0, jobName);
 	}
 
 	@Override
@@ -91,11 +97,16 @@ public class IncrementalIterationPlan extends Plan implements IncrementalIterati
 	public void assemble() {
 		iteration.setNextWorkset(comparisonMatch);
 		iteration.setSolutionSetDelta(comparisonMatch);		
+		this.getDataSinks().iterator().next().addInput(getIteration());
 	}
 	
 	public Contract getIteration() throws PlanException {
 		if(iteration.isConfigured()) return this.iteration;
 		else throw new PlanException("The dependency Iteration is not properly configured -- Forgot to assemble?");
 		
+	}
+
+	public void setMaxIterations(int maxIterations) {
+		iteration.setMaximumNumberOfIterations(maxIterations);		
 	}
 }
