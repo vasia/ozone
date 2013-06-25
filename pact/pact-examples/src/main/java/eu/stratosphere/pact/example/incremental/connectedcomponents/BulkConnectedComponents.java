@@ -1,4 +1,4 @@
-package eu.stratosphere.pact.example.incremental;
+package eu.stratosphere.pact.example.incremental.connectedcomponents;
 
 import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.FileDataSource;
@@ -11,7 +11,7 @@ import eu.stratosphere.pact.example.iterative.DuplicateLongInputFormat;
 import eu.stratosphere.pact.example.iterative.LongLongInputFormat;
 import eu.stratosphere.pact.incremental.plans.BulkIterationPlan;
 
-public class BulkConnectedComponents implements PlanAssembler,	PlanAssemblerDescription {
+public class BulkConnectedComponents implements PlanAssembler, PlanAssemblerDescription {
 	
 	@Override
 	public Plan getPlan(String... args) {

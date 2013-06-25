@@ -10,7 +10,6 @@ import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.generic.contract.Contract;
-import eu.stratosphere.pact.generic.io.OutputFormat;
 import eu.stratosphere.pact.incremental.contracts.BulkIterationContract;
 
 /**

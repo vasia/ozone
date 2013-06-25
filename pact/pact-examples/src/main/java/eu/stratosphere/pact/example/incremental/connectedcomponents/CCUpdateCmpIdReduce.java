@@ -1,4 +1,4 @@
-package eu.stratosphere.pact.example.incremental;
+package eu.stratosphere.pact.example.incremental.connectedcomponents;
 
 import java.util.Iterator;
 
