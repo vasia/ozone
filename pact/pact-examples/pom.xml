@@ -141,6 +141,32 @@
 						</configuration>
 					</execution>
 
+					<!-- Bulk Connected Components -->
+					<execution>
+						<id>BulkCC</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>BulkCC</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.connectedcomponents.BulkConnectedComponents</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/connectedcomponents/BulkConnectedComponents.class</include>
+								<include>**/connectedcomponents/BulkConnectedComponents$*.class</include>
+								<include>**/connectedcomponents/CCOldValueComparisonMatch.class</include>
+								<include>**/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
 					<!-- EnumTriangles on pre-computed vertex degrees-->
 					<execution>
 						<id>EnumTrianglesOnEdgesWithDegrees</id>
