@@ -19,24 +19,28 @@ import eu.stratosphere.pact.incremental.contracts.DependencyIterationContract;
  * 
  * 
  *	 	=========== *Match*: oldValueComparison
- *		|	|				|		|
- *		|	|				|		|
- *		|	|				|	*Reduce*: valuesUpdate (aggregate update function)
- *		|	|				|					|
- *		|	|				|					|
- *		|	|				|	*Match*: dependencies computation
- *		|	|				|				|				|
- *		|	|				|				|				|
- *		|	=========> S: solutionSet		|			D: dependencySet
- *		|									|
- *		|									|
- *		|						*Reduce*: group Candidates
- *		|									|
- *		|									|
- *		|						*Match*: find candidates for re-computation
- *		|							|						|
- * 		|							|						|
- *		|==================== W: workSet			D: dependencySet	
+ *		|	|			|		|
+ *		|	|			|		|
+ *		|	|			|	*Reduce*: valuesUpdate (aggregate update function)
+ *		|	|			|					|
+ *		|	|			|					|
+ *		|	|			|	*Match*: dependencies computation			|
+ *		|	|			|		|						|
+ *		|	|			|		|						|
+ *		|	=========> S: solutionSet					|
+ *		|												|
+ *		|												|
+ *		|						*Match*: compute the dependencies of the Candidates
+ *		|									|					|
+ *		|									|					|
+ *		|						*Reduce*: group Candidates		|
+ *		|									|					|
+ *		|									|					|
+ *		|						*Match*: find Candidates 		|
+ *		|								for re-computation		|
+ *		|							|					|		|
+ * 		|							|					|		|
+ *		===================== W: workSet			D: dependencySet	
  *
  */
 
@@ -45,6 +49,7 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 	private DependencyIterationContract iteration;
 	private MatchContract candidatesMatch;
 	private ReduceContract candidatesReduce;
+	private MatchContract candidatesDependenciesMatch;
 	private MatchContract dependenciesMatch;
 	private ReduceContract updateReduce;
 	private MatchContract comparisonMatch;
@@ -86,14 +91,23 @@ public class DependencyIterationPlan extends Plan implements DependencyIteration
 		.name("Group Candidates")
 		.build();
 	}
+	
+	@Override
+	public void setUpCandidatespDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
+		candidatesDependenciesMatch = MatchContract.builder(udf, keyClass, keyColumn1, keyColumn2)
+				.input1(candidatesReduce)
+				.input2(iteration.getDependencySet())
+				.name("Join Candidates with Dependency Set")
+				.build();
+	}
 
 	@Override
 	public void setUpDependenciesMatch(Class<? extends MatchStub> udf,
 			Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
 		dependenciesMatch = MatchContract.builder(udf, keyClass, keyColumn1, keyColumn2)
-				.input1(candidatesReduce)
-				.input2(iteration.getDependencySet())
-				.name("Join grouped Candidates with Dependency Set")
+				.input1(candidatesDependenciesMatch)
+				.input2(iteration.getSolutionSet())
+				.name("Join Solution Set with Candidates' Dependencies")
 				.build();
 	}
 	

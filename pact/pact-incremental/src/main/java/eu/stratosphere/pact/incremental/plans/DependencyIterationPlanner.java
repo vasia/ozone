@@ -21,6 +21,8 @@ public interface DependencyIterationPlanner {
 	
 	public void setUpCandidatesReduce(Class<? extends ReduceStub> udf, Class<? extends Key> keyClass, int keyColumn);
 	
+	public void setUpCandidatespDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
+	
 	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2);
 	
 	public void setUpUpdateReduce(Class<? extends ReduceStub> udf, Class<? extends Key> keyClass, int keyColumn);
