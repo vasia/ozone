@@ -7,7 +7,7 @@ import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactLong;
 
 @ConstantFieldsFirst(0)
-public final class CCBulkOldValueComparisonMatch extends MatchStub {
+public final class CCOldValueComparisonMatch extends MatchStub {
 
 	@Override
 	public void match(PactRecord newVertexWithComponent, PactRecord currentVertexWithComponent, Collector<PactRecord> out){
