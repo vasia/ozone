@@ -44,7 +44,7 @@ public class BulkConnectedComponents implements PlanAssembler, PlanAssemblerDesc
 		iterationPlan.setMaxIterations(maxIterations);
 		iterationPlan.setUpDependenciesMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
 		iterationPlan.setUpUpdateReduce(CCUpdateCmpIdReduce.class, PactLong.class, 0);
-		iterationPlan.setUpComparisonMatch(CCBulkOldValueComparisonMatch.class, PactLong.class, 0, 0);
+		iterationPlan.setUpComparisonMatch(CCOldValueComparisonMatch.class, PactLong.class, 0, 0);		
 		iterationPlan.assemble();
 		iterationPlan.setDefaultParallelism(numSubTasks);
 		
