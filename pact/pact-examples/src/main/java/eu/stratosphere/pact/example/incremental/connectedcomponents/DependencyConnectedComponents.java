@@ -26,7 +26,6 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		@Override
 		public void match(PactRecord wRecord, PactRecord dRecord, Collector<PactRecord> out) throws Exception {
 			this.result.setField(0, dRecord.getField(1, PactLong.class));
-			this.result.setField(1, wRecord.getField(1, PactLong.class));
 			out.collect(this.result);
 		}
 		
@@ -37,6 +36,15 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		@Override
 		public void reduce(Iterator<PactRecord> candidates, Collector<PactRecord> out) throws Exception {
 			out.collect(candidates.next());
+		}
+		
+	}
+	
+	public static final class FindCandidatesDependenciesMatch extends MatchStub {
+		
+		@Override
+		public void match(PactRecord wRecord, PactRecord dRecord, Collector<PactRecord> out) throws Exception {
+			out.collect(dRecord);
 		}
 		
 	}
@@ -70,11 +78,14 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		//configure the iteration plan
 		iterationPlan.setUpDependencyIteration(initialSolutionSet, initialSolutionSet, dependencySet);
 		iterationPlan.setMaxIterations(maxIterations);
+		
 		iterationPlan.setUpCandidatesMatch(FindCandidatesMatch.class, PactLong.class, 0, 0);
 		iterationPlan.setUpCandidatesReduce(GroupCandidatesReduce.class, PactLong.class, 0);
+		iterationPlan.setUpCandidatespDependenciesMatch(FindCandidatesDependenciesMatch.class, PactLong.class, 0, 1);
 		iterationPlan.setUpDependenciesMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
 		iterationPlan.setUpUpdateReduce(CCUpdateCmpIdReduce.class, PactLong.class, 0);
 		iterationPlan.setUpComparisonMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
+		
 		iterationPlan.assemble();
 		iterationPlan.setDefaultParallelism(numSubTasks);
 		
