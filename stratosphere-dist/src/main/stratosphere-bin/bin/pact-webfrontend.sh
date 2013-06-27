@@ -60,6 +60,8 @@ constructPactWebFrontendClassPath() {
 			add=1
 		elif [[ "$jarfile" =~ 'pact-compiler' ]]; then
 			add=1
+		elif [[ "$jarfile" =~ 'pact-incremental' ]]; then
+			add=1
 		elif [[ "$jarfile" =~ 'commons-cli' ]]; then
 			add=1
 		elif [[ "$jarfile" =~ 'commons-logging' ]]; then

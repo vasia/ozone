@@ -36,6 +36,12 @@
 		</dependency>
 
 		<dependency>
+			<groupId>eu.stratosphere</groupId>
+			<artifactId>pact-incremental</artifactId>
+			<version>0.2</version>
+		</dependency>
+		
+		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-core</artifactId>
 		</dependency>

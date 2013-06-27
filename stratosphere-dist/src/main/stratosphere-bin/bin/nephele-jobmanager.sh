@@ -64,6 +64,8 @@ constructJobManagerClassPath() {
 			add=1
 		elif [[ "$jarfile" =~ 'pact-array-datamodel' ]]; then
 			add=1
+		elif [[ "$jarfile" =~ 'pact-incremental' ]]; then
+			add=1
 		elif [[ "$jarfile" =~ 'pact-runtime' ]]; then
 			add=1
 		elif [[ "$jarfile" =~ 'commons-cli' ]]; then

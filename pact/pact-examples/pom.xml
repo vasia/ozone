@@ -158,11 +158,12 @@
 							</archive>
 
 							<includes>
-								<include>**/connectedcomponents/BulkConnectedComponents.class</include>
-								<include>**/connectedcomponents/BulkConnectedComponents$*.class</include>
-								<include>**/connectedcomponents/CCOldValueComparisonMatch.class</include>
-								<include>**/connectedcomponents/CCDependenciesComputationMatch.class</include>
-								<include>**/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/incremental/connectedcomponents/BulkConnectedComponents.class</include>
+								<include>**/incremental/connectedcomponents/BulkConnectedComponents$*.class</include>
+								<include>**/incremental/connectedcomponents/CCOldValueComparisonMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/iterative/*.class</include>
 							</includes>
 						</configuration>
 					</execution>
