@@ -168,6 +168,33 @@
 						</configuration>
 					</execution>
 
+					<!-- Dependency Connected Components -->
+					<execution>
+						<id>DependencyCC</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DependencyCC</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.connectedcomponents.DependencyConnectedComponents</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/connectedcomponents/DependencyConnectedComponents.class</include>
+								<include>**/incremental/connectedcomponents/DependencyConnectedComponents$*.class</include>
+								<include>**/incremental/connectedcomponents/CCOldValueComparisonMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/iterative/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
 					<!-- EnumTriangles on pre-computed vertex degrees-->
 					<execution>
 						<id>EnumTrianglesOnEdgesWithDegrees</id>

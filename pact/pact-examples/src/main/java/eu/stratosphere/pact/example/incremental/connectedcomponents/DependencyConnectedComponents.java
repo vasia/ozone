@@ -84,7 +84,7 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		iterationPlan.setUpCandidatespDependenciesMatch(FindCandidatesDependenciesMatch.class, PactLong.class, 0, 1);
 		iterationPlan.setUpDependenciesMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
 		iterationPlan.setUpUpdateReduce(CCUpdateCmpIdReduce.class, PactLong.class, 0);
-		iterationPlan.setUpComparisonMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
+		iterationPlan.setUpComparisonMatch(CCOldValueComparisonMatch.class, PactLong.class, 0, 0);
 		
 		iterationPlan.assemble();
 		iterationPlan.setDefaultParallelism(numSubTasks);

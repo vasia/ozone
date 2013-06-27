@@ -18,7 +18,5 @@ public final class CCOldValueComparisonMatch extends MatchStub {
 		if (candidateComponentID < currentComponentID) {
 			out.collect(newVertexWithComponent);
 		}
-		else
-			out.collect(currentVertexWithComponent);
 	}
 }
