@@ -195,6 +195,33 @@
 						</configuration>
 					</execution>
 
+					<!-- Incremental Connected Components -->
+					<execution>
+						<id>IncrementalCC</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>IncrementalCC</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.connectedcomponents.IncrementalConnectedComponents</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/connectedcomponents/IncrementalConnectedComponents.class</include>
+								<include>**/incremental/connectedcomponents/IncrementalConnectedComponents$*.class</include>
+								<include>**/incremental/connectedcomponents/CCDependencyOldValueComparisonMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/iterative/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
 					<!-- EnumTriangles on pre-computed vertex degrees-->
 					<execution>
 						<id>EnumTrianglesOnEdgesWithDegrees</id>
