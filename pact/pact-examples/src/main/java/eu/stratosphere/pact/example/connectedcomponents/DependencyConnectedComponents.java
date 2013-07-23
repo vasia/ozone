@@ -76,7 +76,7 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		private final PactRecord result = new PactRecord();
 
 		@Override
-		public void match(PactRecord vertexWithComponent, PactRecord edge, Collector<PactRecord> out) {
+		public void match(PactRecord edge, PactRecord vertexWithComponent, Collector<PactRecord> out) {
 			this.result.setField(0, edge.getField(1, PactLong.class));
 			this.result.setField(1, vertexWithComponent.getField(1, PactLong.class));
 			out.collect(this.result);
@@ -169,8 +169,8 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 				.build();
 		
 		MatchContract joinWithNeighbors = MatchContract.builder(NeighborWithComponentIDJoin.class, PactLong.class, 0, 0)
-				.input1(iteration.getSolutionSet())
-				.input2(findCandidatesDependencies)
+				.input1(findCandidatesDependencies)
+				.input2(iteration.getSolutionSet())
 				.name("Join Candidate Id With Neighbor")
 				.build();
 
