@@ -7,8 +7,8 @@ import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
 import eu.stratosphere.pact.common.type.base.PactLong;
-import eu.stratosphere.pact.example.iterative.DuplicateLongInputFormat;
-import eu.stratosphere.pact.example.iterative.LongLongInputFormat;
+import eu.stratosphere.pact.example.incremental.DuplicateLongInputFormat;
+import eu.stratosphere.pact.example.incremental.LongLongInputFormat;
 import eu.stratosphere.pact.incremental.plans.BulkIterationPlan;
 
 public class BulkConnectedComponents implements PlanAssembler, PlanAssemblerDescription {
@@ -23,12 +23,12 @@ public class BulkConnectedComponents implements PlanAssembler, PlanAssemblerDesc
 		final int maxIterations = (args.length > 4 ? Integer.parseInt(args[4]) : 1);
 		
 		// create DataSourceContract for the initalSolutionSet
-		FileDataSource initialSolutionSet = new FileDataSource(DuplicateLongInputFormat.class, solutionSetInput, "Initial Solution Set");
+		FileDataSource initialSolutionSet = new FileDataSource(DuplicateLongInputFormat.class, solutionSetInput, "Initial Solution Set");		
 		
 		// create DataSourceContract for the edges
 		FileDataSource dependencySet = new FileDataSource(LongLongInputFormat.class, dependencySetInput, "Dependency Set");
 		
-		// create DataSinkContract for writing the new cluster positions
+		// create DataSinkContract for writing the result
 		FileDataSink result = new FileDataSink(RecordOutputFormat.class, output, "Result");
 		RecordOutputFormat.configureRecordFormat(result)
 			.recordDelimiter('\n')
@@ -44,7 +44,7 @@ public class BulkConnectedComponents implements PlanAssembler, PlanAssemblerDesc
 		iterationPlan.setMaxIterations(maxIterations);
 		iterationPlan.setUpDependenciesMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
 		iterationPlan.setUpUpdateReduce(CCUpdateCmpIdReduce.class, PactLong.class, 0);
-		iterationPlan.setUpComparisonMatch(CCOldValueComparisonMatch.class, PactLong.class, 0, 0);		
+		iterationPlan.setUpComparisonMatch(CCBulkOldValueComparisonMatch.class, PactLong.class, 0, 0);		
 		iterationPlan.assemble();
 		iterationPlan.setDefaultParallelism(numSubTasks);
 		

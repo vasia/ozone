@@ -13,8 +13,8 @@ import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactLong;
-import eu.stratosphere.pact.example.iterative.DuplicateLongInputFormat;
-import eu.stratosphere.pact.example.iterative.LongLongInputFormat;
+import eu.stratosphere.pact.example.incremental.DuplicateLongInputFormat;
+import eu.stratosphere.pact.example.incremental.LongLongInputFormat;
 import eu.stratosphere.pact.incremental.plans.DependencyIterationPlan;
 
 public class DependencyConnectedComponents implements PlanAssembler, PlanAssemblerDescription {
@@ -64,7 +64,7 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		// create DataSourceContract for the edges
 		FileDataSource dependencySet = new FileDataSource(LongLongInputFormat.class, dependencySetInput, "Dependency Set");
 		
-		// create DataSinkContract for writing the new cluster positions
+		// create DataSinkContract for writing the result
 		FileDataSink result = new FileDataSink(RecordOutputFormat.class, output, "Result");
 		RecordOutputFormat.configureRecordFormat(result)
 			.recordDelimiter('\n')
@@ -84,7 +84,7 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		iterationPlan.setUpCandidatespDependenciesMatch(FindCandidatesDependenciesMatch.class, PactLong.class, 0, 1);
 		iterationPlan.setUpDependenciesMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
 		iterationPlan.setUpUpdateReduce(CCUpdateCmpIdReduce.class, PactLong.class, 0);
-		iterationPlan.setUpComparisonMatch(CCOldValueComparisonMatch.class, PactLong.class, 0, 0);
+		iterationPlan.setUpComparisonMatch(CCWorksetOldValueComparisonMatch.class, PactLong.class, 0, 0);
 		
 		iterationPlan.assemble();
 		iterationPlan.setDefaultParallelism(numSubTasks);

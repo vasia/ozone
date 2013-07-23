@@ -7,7 +7,7 @@ import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactLong;
 
 @ConstantFieldsFirst(0)
-public final class CCOldValueComparisonMatch extends MatchStub {
+public final class CCWorksetOldValueComparisonMatch extends MatchStub {
 
 	@Override
 	public void match(PactRecord newVertexWithComponent, PactRecord currentVertexWithComponent, Collector<PactRecord> out){
@@ -15,8 +15,7 @@ public final class CCOldValueComparisonMatch extends MatchStub {
 		long candidateComponentID = newVertexWithComponent.getField(1, PactLong.class).getValue();
 		long currentComponentID = currentVertexWithComponent.getField(1, PactLong.class).getValue();
 
-		if (candidateComponentID < currentComponentID) {
+		if (candidateComponentID < currentComponentID)
 			out.collect(newVertexWithComponent);
-		}
 	}
 }
