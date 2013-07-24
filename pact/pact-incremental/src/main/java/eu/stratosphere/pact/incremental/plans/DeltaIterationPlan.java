@@ -92,6 +92,11 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 		super(sink, jobName);
 		iteration = new DeltaIterationContract(keyPosition, jobName);
 	}
+	
+	public DeltaIterationPlan(GenericDataSink sink, String jobName) {
+		super(sink, jobName);
+		iteration = new DeltaIterationContract(0, jobName);
+	}
 
 	@Override
 	public void setUpDeltaIteration(Contract initialSolutionSet, Contract initialWorkSet, GenericDataSource<?> dependencySet) {
@@ -235,14 +240,19 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 				.build();
 		
 		iteration.setNextWorkset(updateDeltaSetMap);
-		iteration.setSolutionSetDelta(updateSolutionSetMap);		
+		iteration.setSolutionSetDelta(updateSolutionSetMap);	
 		
+		this.getDataSinks().iterator().next().addInput(getIteration());		
 	}
 	
 	public Contract getIteration() throws PlanException {
 		if(iteration.isConfigured()) return iteration;
 		else throw new PlanException("The Delta Iteration is not properly configured -- Forgot to assemble?");
 		
+	}
+
+	public void setMaxIterations(int maxIterations){
+		iteration.setMaximumNumberOfIterations(maxIterations);
 	}
 
 }
