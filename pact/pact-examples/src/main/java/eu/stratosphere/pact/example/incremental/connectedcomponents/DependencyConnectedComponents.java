@@ -1,54 +1,21 @@
 package eu.stratosphere.pact.example.incremental.connectedcomponents;
 
-import java.util.Iterator;
-
 import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.FileDataSource;
 import eu.stratosphere.pact.common.io.RecordOutputFormat;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
-import eu.stratosphere.pact.common.stubs.Collector;
-import eu.stratosphere.pact.common.stubs.MatchStub;
-import eu.stratosphere.pact.common.stubs.ReduceStub;
-import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactLong;
 import eu.stratosphere.pact.example.incremental.DuplicateLongInputFormat;
+import eu.stratosphere.pact.example.incremental.FindCandidatesMatchLong;
+import eu.stratosphere.pact.example.incremental.GroupCandidatesReduce;
+import eu.stratosphere.pact.example.incremental.FindCandidatesDependenciesMatch;
 import eu.stratosphere.pact.example.incremental.LongLongInputFormat;
 import eu.stratosphere.pact.incremental.plans.DependencyIterationPlan;
 
 public class DependencyConnectedComponents implements PlanAssembler, PlanAssemblerDescription {
-	
-	public static final class FindCandidatesMatch extends MatchStub {
 
-		private final PactRecord result = new PactRecord();
-		
-		@Override
-		public void match(PactRecord wRecord, PactRecord dRecord, Collector<PactRecord> out) throws Exception {
-			this.result.setField(0, dRecord.getField(1, PactLong.class));
-			out.collect(this.result);
-		}
-		
-	}
-	
-	public static final class GroupCandidatesReduce extends ReduceStub {
-
-		@Override
-		public void reduce(Iterator<PactRecord> candidates, Collector<PactRecord> out) throws Exception {
-			out.collect(candidates.next());
-		}
-		
-	}
-	
-	public static final class FindCandidatesDependenciesMatch extends MatchStub {
-		
-		@Override
-		public void match(PactRecord wRecord, PactRecord dRecord, Collector<PactRecord> out) throws Exception {
-			out.collect(dRecord);
-		}
-		
-	}
-	
 	@Override
 	public Plan getPlan(String... args) {
 		// parse job parameters
@@ -79,7 +46,7 @@ public class DependencyConnectedComponents implements PlanAssembler, PlanAssembl
 		iterationPlan.setUpDependencyIteration(initialSolutionSet, initialSolutionSet, dependencySet);
 		iterationPlan.setMaxIterations(maxIterations);
 		
-		iterationPlan.setUpCandidatesMatch(FindCandidatesMatch.class, PactLong.class, 0, 0);
+		iterationPlan.setUpCandidatesMatch(FindCandidatesMatchLong.class, PactLong.class, 0, 0);
 		iterationPlan.setUpCandidatesReduce(GroupCandidatesReduce.class, PactLong.class, 0);
 		iterationPlan.setUpCandidatespDependenciesMatch(FindCandidatesDependenciesMatch.class, PactLong.class, 0, 1);
 		iterationPlan.setUpDependenciesMatch(CCDependenciesComputationMatch.class, PactLong.class, 0, 0);
