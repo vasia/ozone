@@ -244,6 +244,105 @@
 						</configuration>
 					</execution>
 
+					<!-- Bulk PageRank -->
+					<execution>
+						<id>BulkPageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>BulkPageRank</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.BulkPageRank</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Dependency PageRank -->
+					<execution>
+						<id>DependencyPageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DependencyPageRank</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.DependencyPageRank</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/DependencyPageRank$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Initialize Deltas -->
+					<execution>
+						<id>InitializeDeltas</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>InitializeDeltas</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.InitializeDeltas</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/InitializeDeltas$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Delta PageRank -->
+					<execution>
+						<id>DeltaPageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DeltaPageRank</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRank</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/DeltaPageRank$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
 					<!-- EnumTriangles on pre-computed vertex degrees-->
 					<execution>
 						<id>EnumTrianglesOnEdgesWithDegrees</id>

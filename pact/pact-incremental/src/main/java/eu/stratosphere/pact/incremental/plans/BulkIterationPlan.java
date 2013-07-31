@@ -66,8 +66,7 @@ public class BulkIterationPlan extends Plan implements BulkIterationPlanner {
 	}
 
 	@Override
-	public void setUpUpdateReduce(Class<? extends ReduceStub> udf,
-			Class<? extends Key> keyClass, int keyColumn) {
+	public void setUpUpdateReduce(Class<? extends ReduceStub> udf, Class<? extends Key> keyClass, int keyColumn) {
 		updateReduce = ReduceContract.builder(udf, keyClass, keyColumn)
 				.input(dependencyMatch)
 				.name("Update Function")
@@ -94,7 +93,7 @@ public class BulkIterationPlan extends Plan implements BulkIterationPlanner {
 		iteration.setMaximumNumberOfIterations(maxIterations);
 	}
 	
-	public Contract getIteration() throws PlanException {
+	private Contract getIteration() throws PlanException {
 		if(iteration.isConfigured()) return iteration;
 		else throw new PlanException("The Bulk Iteration is not properly configured -- Forgot to assemble?");
 	}

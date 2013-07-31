@@ -1,16 +1,20 @@
 package eu.stratosphere.pact.incremental.plans;
 
+import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSink;
 import eu.stratosphere.pact.common.contract.GenericDataSource;
 import eu.stratosphere.pact.common.contract.MapContract;
 import eu.stratosphere.pact.common.contract.MatchContract;
 import eu.stratosphere.pact.common.contract.ReduceContract;
+import eu.stratosphere.pact.common.io.RecordOutputFormat;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanException;
 import eu.stratosphere.pact.common.stubs.MapStub;
 import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.type.Key;
+import eu.stratosphere.pact.common.type.base.PactDouble;
+import eu.stratosphere.pact.common.type.base.PactLong;
 import eu.stratosphere.pact.generic.contract.Contract;
 import eu.stratosphere.pact.incremental.contracts.DeltaIterationContract;
 
@@ -158,6 +162,7 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 				.build();	
 		
 		setUpComparisonMatchParam(udf, keyClass, keyColumn1, keyColumn2);
+
 	}
 
 	private void setUpComparisonMatchParam(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
@@ -176,6 +181,16 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 				.name("Update SolutionSet Map (Bulk)")
 				.build();
 		
+		// write intermediate output
+		// create DataSinkContract for writing the intermediate ranks
+		final String outputDelta = "file:///home/hinata/Desktop/intermediateSS.out";
+		FileDataSink resultDelta = new FileDataSink(RecordOutputFormat.class, outputDelta, bulkUpdateSolutionSetMap, "Intermediate Ranks");
+		RecordOutputFormat.configureRecordFormat(resultDelta)
+			.recordDelimiter('\n')
+			.fieldDelimiter(' ')
+			.field(PactLong.class, 0)
+			.field(PactDouble.class, 1);
+		
 		setUpSolutionSetMapParams(udf);	
 	}
 
@@ -191,6 +206,16 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 				.input(bulkComparisonMatch)
 				.name("Update DeltaSet Map (Bulk)")
 				.build();
+		
+		// write intermediate output
+		// create DataSinkContract for writing the intermediate ranks
+		final String outputDelta = "file:///home/hinata/Desktop/intermediateD.out";
+		FileDataSink resultDelta = new FileDataSink(RecordOutputFormat.class, outputDelta, bulkUpdateDeltaSetMap, "Intermediate Ranks");
+		RecordOutputFormat.configureRecordFormat(resultDelta)
+			.recordDelimiter('\n')
+			.fieldDelimiter(' ')
+			.field(PactLong.class, 0)
+			.field(PactDouble.class, 1);
 		
 		setUpWorkSetMapParams(udf);
 		}
@@ -229,26 +254,26 @@ public class DeltaIterationPlan extends Plan implements DeltaIterationPlanner {
 				.name("Join with Solution Set")
 				.build();
 		
-		updateSolutionSetMap = MapContract.builder(solutionSetMapUdf)
+	/*	updateSolutionSetMap = MapContract.builder(solutionSetMapUdf)
 				.input(comparisonMatch)
 				.name("Update SolutionSet Map")
-				.build();
+				.build(); */
 		
 		updateDeltaSetMap = MapContract.builder(workSetMapUdf)
 				.input(comparisonMatch)
 				.name("Update DeltaSet Map")
-				.build();
+				.build();	
 		
 		iteration.setNextWorkset(updateDeltaSetMap);
-		iteration.setSolutionSetDelta(updateSolutionSetMap);	
+		iteration.setSolutionSetDelta(comparisonMatch);	
 		
-		this.getDataSinks().iterator().next().addInput(getIteration());		
+		// set the input of the DataSink
+		this.getDataSinks().iterator().next().addInput(this.iteration);		
 	}
 	
-	public Contract getIteration() throws PlanException {
+	private Contract getIteration() throws PlanException {
 		if(iteration.isConfigured()) return iteration;
-		else throw new PlanException("The Delta Iteration is not properly configured -- Forgot to assemble?");
-		
+		else throw new PlanException("The Delta Iteration is not properly configured");
 	}
 
 	public void setMaxIterations(int maxIterations){
