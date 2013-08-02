@@ -34,5 +34,4 @@ public class UpdateRankReduce extends ReduceStub {
 		out.collect(rec);
 
 	}
-
 }
