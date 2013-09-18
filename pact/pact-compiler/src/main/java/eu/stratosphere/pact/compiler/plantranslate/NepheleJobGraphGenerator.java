@@ -720,7 +720,8 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 					inConn.getLocalStrategy() == LocalStrategy.NONE &&
 					pred.getOutgoingChannels().size() == 1 &&
 					node.getDegreeOfParallelism() == pred.getDegreeOfParallelism() && 
-					node.getSubtasksPerInstance() == pred.getSubtasksPerInstance();
+					node.getSubtasksPerInstance() == pred.getSubtasksPerInstance() &&
+							node.getOutgoingChannels().size() > 0;
 		}
 		
 		final JobTaskVertex vertex;
