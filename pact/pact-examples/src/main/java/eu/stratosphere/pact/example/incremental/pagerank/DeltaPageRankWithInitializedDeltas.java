@@ -25,19 +25,32 @@ import eu.stratosphere.pact.generic.contract.WorksetIteration;
 
 public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAssemblerDescription {
 
-	@ConstantFieldsFirst(0)
+	@ConstantFieldsFirst({0,1})
 	public static final class RankComparisonMatch extends MatchStub {
-
-		private final PactRecord result = new PactRecord();
+		
 		private final PactDouble newRank = new PactDouble();
 		
 		@Override
-		public void match(PactRecord vertexWithDelta, PactRecord vertexWithOldRank, Collector<PactRecord> out) throws Exception {
-			result.setField(0, vertexWithOldRank.getField(0, PactLong.class));
-			newRank.setValue(vertexWithOldRank.getField(1, PactDouble.class).getValue() +
-					vertexWithDelta.getField(1, PactDouble.class).getValue());
-			result.setField(1, newRank);
-			out.collect(result);
+		public void match(PactRecord vertexWithDelta, PactRecord vertexWithOldRank, Collector<PactRecord> out) throws Exception {			
+			PactDouble deltaVal = vertexWithDelta.getField(1, PactDouble.class);
+			PactDouble currentVal = vertexWithOldRank.getField(1, PactDouble.class);
+			
+			newRank.setValue(deltaVal.getValue() + currentVal.getValue());
+			vertexWithOldRank.setField(1, newRank);
+			vertexWithOldRank.setField(2, deltaVal);
+			
+			out.collect(vertexWithOldRank);
+		}
+	}
+	
+	@ConstantFields({0, 1})
+	public static final class ProjectForWorkSetMapper extends MapStub {
+		
+		@Override
+		public void map(PactRecord rec, Collector<PactRecord> out) throws Exception {
+			rec.setField(1, rec.getField(2, PactDouble.class));
+			rec.setNumFields(2);
+			out.collect(rec);
 		}
 	}
 	
@@ -53,7 +66,7 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 			double rankSum = 0.0;
 			double rank;
 			PactRecord rec = null;
-			
+
 			while (records.hasNext()) {
 				rec = records.next();
 				rank = rec.getField(1, PactDouble.class).getValue();
@@ -61,12 +74,11 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 			}
 			
 			// ignore small deltas
-			if (rankSum > 0.001) {
+			if (Math.abs(rankSum) > 0.001) {
 				newRank.setValue(rankSum);
 				rec.setField(1, newRank);
 				out.collect(rec);
 			}
-
 		}
 	}
 	
@@ -82,7 +94,7 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 		final int maxIterations = (args.length > 5 ? Integer.parseInt(args[5]) : 1);
 		
 		// create DataSourceContract for the initalSolutionSet
-		FileDataSource initialSolutionSet = new FileDataSource(InitialRankInputFormat.class, solutionSetInput, "Initial Solution Set");		
+		FileDataSource initialSolutionSet = new FileDataSource(InitialRankAndDeltaInputFormat.class, solutionSetInput, "Initial Solution Set");		
 
 		// create DataSourceContract for the initalDeltaSet
 		FileDataSource initialDeltaSet = new FileDataSource(InitialRankInputFormat.class, deltasInput, "Initial DeltaSet");		
@@ -113,7 +125,12 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 				.name("comparison with old ranks")
 				.build();
 		
-		iteration.setNextWorkset(updateRanks);
+		MapContract projectionMap = MapContract.builder(ProjectForWorkSetMapper.class)
+				.input(oldRankComparison)
+				.name("projection for workset")
+				.build();
+
+		iteration.setNextWorkset(projectionMap);
 		iteration.setSolutionSetDelta(oldRankComparison);
 		
 		// create DataSinkContract for writing the final ranks

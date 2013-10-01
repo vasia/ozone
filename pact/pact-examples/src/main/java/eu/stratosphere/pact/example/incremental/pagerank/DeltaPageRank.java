@@ -40,7 +40,7 @@ public class DeltaPageRank implements PlanAssembler, PlanAssemblerDescription {
 		@Override
 		public void map(PactRecord record, Collector<PactRecord> out) throws Exception {
 			this.newRank.setField(0, record.getField(0, PactLong.class));
-			this.newRank.setField(1, record.getField(2, PactLong.class));
+			this.newRank.setField(1, record.getField(2, PactDouble.class));
 			out.collect(newRank);
 		}
 		
@@ -56,7 +56,7 @@ public class DeltaPageRank implements PlanAssembler, PlanAssemblerDescription {
 		public void map(PactRecord record, Collector<PactRecord> out) throws Exception {
 			this.vertexWithDeltaRank.setField(0, record.getField(0, PactLong.class));
 			// newRank - oldRank
-			double delta = record.getField(2, PactLong.class).getValue() - record.getField(1, PactLong.class).getValue();
+			double delta = record.getField(2, PactDouble.class).getValue() - record.getField(1, PactDouble.class).getValue();
 			// ignore small deltas
 			if (Math.abs(delta) > 0.001) {
 				this.deltaRank.setValue(delta);

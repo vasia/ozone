@@ -18,11 +18,13 @@ public class PRDependenciesComputationMatch extends MatchStub {
 	 */
 	@Override
 	public void match(PactRecord vertexWithRank, PactRecord edgeWithWeight, Collector<PactRecord> out) throws Exception {
+		
 		result.setField(0, edgeWithWeight.getField(1, PactLong.class));
 		final long outLinks = edgeWithWeight.getField(2, PactLong.class).getValue();
 		final double rank = vertexWithRank.getField(1, PactDouble.class).getValue();
 		partRank.setValue(rank / (double) outLinks);
 		result.setField(1, partRank);
+		
 		out.collect(result);
 	}
 }
