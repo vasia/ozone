@@ -38,7 +38,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -60,10 +59,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import eu.stratosphere.nephele.client.AbstractJobResult;
+import eu.stratosphere.nephele.client.AbstractJobResult.ReturnCode;
 import eu.stratosphere.nephele.client.JobCancelResult;
 import eu.stratosphere.nephele.client.JobProgressResult;
 import eu.stratosphere.nephele.client.JobSubmissionResult;
-import eu.stratosphere.nephele.client.AbstractJobResult.ReturnCode;
 import eu.stratosphere.nephele.configuration.ConfigConstants;
 import eu.stratosphere.nephele.configuration.GlobalConfiguration;
 import eu.stratosphere.nephele.deployment.TaskDeploymentDescriptor;
@@ -82,7 +81,6 @@ import eu.stratosphere.nephele.executiongraph.GraphConversionException;
 import eu.stratosphere.nephele.executiongraph.InternalJobStatus;
 import eu.stratosphere.nephele.executiongraph.JobStatusListener;
 import eu.stratosphere.nephele.instance.AbstractInstance;
-import eu.stratosphere.nephele.instance.AllocatedResource;
 import eu.stratosphere.nephele.instance.DummyInstance;
 import eu.stratosphere.nephele.instance.HardwareDescription;
 import eu.stratosphere.nephele.instance.InstanceConnectionInfo;
@@ -104,9 +102,6 @@ import eu.stratosphere.nephele.jobmanager.splitassigner.InputSplitWrapper;
 import eu.stratosphere.nephele.managementgraph.ManagementGraph;
 import eu.stratosphere.nephele.managementgraph.ManagementVertexID;
 import eu.stratosphere.nephele.multicast.MulticastManager;
-import eu.stratosphere.nephele.plugins.JobManagerPlugin;
-import eu.stratosphere.nephele.plugins.PluginID;
-import eu.stratosphere.nephele.plugins.PluginManager;
 import eu.stratosphere.nephele.profiling.JobManagerProfiler;
 import eu.stratosphere.nephele.profiling.ProfilingListener;
 import eu.stratosphere.nephele.profiling.ProfilingUtils;
@@ -114,10 +109,8 @@ import eu.stratosphere.nephele.protocols.ChannelLookupProtocol;
 import eu.stratosphere.nephele.protocols.ExtendedManagementProtocol;
 import eu.stratosphere.nephele.protocols.InputSplitProviderProtocol;
 import eu.stratosphere.nephele.protocols.JobManagerProtocol;
-import eu.stratosphere.nephele.protocols.PluginCommunicationProtocol;
 import eu.stratosphere.nephele.taskmanager.AbstractTaskResult;
 import eu.stratosphere.nephele.taskmanager.TaskCancelResult;
-import eu.stratosphere.nephele.taskmanager.TaskCheckpointState;
 import eu.stratosphere.nephele.taskmanager.TaskExecutionState;
 import eu.stratosphere.nephele.taskmanager.TaskKillResult;
 import eu.stratosphere.nephele.taskmanager.TaskSubmissionResult;
@@ -139,7 +132,7 @@ import eu.stratosphere.nephele.util.StringUtils;
  * @author warneke
  */
 public class JobManager implements DeploymentManager, ExtendedManagementProtocol, InputSplitProviderProtocol,
-		JobManagerProtocol, ChannelLookupProtocol, JobStatusListener, PluginCommunicationProtocol {
+		JobManagerProtocol, ChannelLookupProtocol, JobStatusListener {
 	
 	public static enum ExecutionMode { LOCAL, CLUSTER }
 	
@@ -161,8 +154,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 
 	private InstanceManager instanceManager;
 
-	private final Map<PluginID, JobManagerPlugin> jobManagerPlugins;
-
 	private final int recommendedClientPollingInterval;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -174,13 +165,8 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 	private final AtomicBoolean isShutdownInProgress = new AtomicBoolean(false);
 
 	private volatile boolean isShutDown = false;
-
 	
 	public JobManager(ExecutionMode executionMode) {
-		this(executionMode, null);
-	}
-	
-	public JobManager(ExecutionMode executionMode, final String pluginsDir) {
 
 		final String ipcAddressString = GlobalConfiguration
 			.getString(ConfigConstants.JOB_MANAGER_IPC_ADDRESS_KEY, null);
@@ -232,13 +218,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 		}
 
 		LOG.info("Starting job manager in " + executionMode + " mode");
-
-		// Load the plugins
-		if (pluginsDir != null) {
-			this.jobManagerPlugins = PluginManager.getJobManagerPlugins(this, pluginsDir);
-		} else {
-			this.jobManagerPlugins = Collections.emptyMap();
-		}
 
 		// Try to load the instance manager for the given execution mode
 		// Try to load the scheduler for the given execution mode
@@ -350,12 +329,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 			}
 		}
 
-		// Stop the plugins
-		final Iterator<JobManagerPlugin> it = this.jobManagerPlugins.values().iterator();
-		while (it.hasNext()) {
-			it.next().shutdown();
-		}
-
 		// Stop and clean up the job progress collector
 		if (this.eventCollector != null) {
 			this.eventCollector.shutdown();
@@ -416,7 +389,7 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 		GlobalConfiguration.loadConfiguration(configDir);
 
 		// Create a new job manager object
-		JobManager jobManager = new JobManager(executionMode, configDir);
+		JobManager jobManager = new JobManager(executionMode);
 
 		// Run the main task loop
 		jobManager.runTaskLoop();
@@ -503,30 +476,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 			jobRunsWithProfiling = true;
 		}
 
-		// Allow plugins to rewrite the job graph
-		Iterator<JobManagerPlugin> it = this.jobManagerPlugins.values().iterator();
-		while (it.hasNext()) {
-
-			final JobManagerPlugin plugin = it.next();
-			if (plugin.requiresProfiling() && !jobRunsWithProfiling) {
-				LOG.debug("Skipping job graph rewrite by plugin " + plugin + " because job " + job.getJobID()
-					+ " will not be executed with profiling");
-				continue;
-			}
-
-			final JobGraph inputJob = job;
-			job = plugin.rewriteJobGraph(inputJob);
-			if (job == null) {
-				if (LOG.isWarnEnabled()) {
-					LOG.warn("Plugin " + plugin + " set job graph to null, reverting changes...");
-				}
-				job = inputJob;
-			}
-			if (job != inputJob && LOG.isDebugEnabled()) {
-				LOG.debug("Plugin " + plugin + " rewrote job graph");
-			}
-		}
-
 		// Try to create initial execution graph from job graph
 		LOG.info("Creating initial execution graph from job graph " + job.getName());
 		ExecutionGraph eg = null;
@@ -536,28 +485,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 		} catch (GraphConversionException gce) {
 			JobSubmissionResult result = new JobSubmissionResult(AbstractJobResult.ReturnCode.ERROR, gce.getMessage());
 			return result;
-		}
-
-		// Allow plugins to rewrite the execution graph
-		it = this.jobManagerPlugins.values().iterator();
-		while (it.hasNext()) {
-
-			final JobManagerPlugin plugin = it.next();
-			if (plugin.requiresProfiling() && !jobRunsWithProfiling) {
-				LOG.debug("Skipping execution graph rewrite by plugin " + plugin + " because job " + job.getJobID()
-					+ " will not be executed with profiling");
-				continue;
-			}
-
-			final ExecutionGraph inputGraph = eg;
-			eg = plugin.rewriteExecutionGraph(inputGraph);
-			if (eg == null) {
-				LOG.warn("Plugin " + plugin + " set execution graph to null, reverting changes...");
-				eg = inputGraph;
-			}
-			if (eg != inputGraph) {
-				LOG.debug("Plugin " + plugin + " rewrote execution graph");
-			}
 		}
 
 		// Register job with the progress collector
@@ -572,16 +499,7 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 			if (this.eventCollector != null) {
 				this.profiler.registerForProfilingData(eg.getJobID(), this.eventCollector);
 			}
-
-			// Allow plugins to register their own profiling listeners for the job
-			it = this.jobManagerPlugins.values().iterator();
-			while (it.hasNext()) {
-
-				final ProfilingListener listener = it.next().getProfilingListener(eg.getJobID());
-				if (listener != null) {
-					this.profiler.registerForProfilingData(eg.getJobID(), listener);
-				}
-			}
+			
 		}
 
 		// Register job with the dynamic input split assigner
@@ -635,9 +553,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 		if (this.inputSplitManager != null) {
 			this.inputSplitManager.unregisterJob(executionGraph);
 		}
-
-		// Remove all the checkpoints of the job
-		removeAllCheckpoints(executionGraph);
 
 		// Unregister job with library cache manager
 		try {
@@ -823,8 +738,7 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 				return ConnectionInfoLookupResponse.createReceiverFoundAndReady();
 			}
 
-			if (executionState != ExecutionState.RUNNING && executionState != ExecutionState.REPLAYING
-				&& executionState != ExecutionState.FINISHING) {
+			if (executionState != ExecutionState.RUNNING && executionState != ExecutionState.FINISHING) {
 				// LOG.info("Created receiverNotReady for " + connectedVertex + " in state " + executionState + " 2");
 				return ConnectionInfoLookupResponse.createReceiverNotReady();
 			}
@@ -855,8 +769,8 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 			// Check execution state
 			final ExecutionState executionState = targetVertex.getExecutionState();
 
-			if (executionState != ExecutionState.RUNNING && executionState != ExecutionState.REPLAYING
-				&& executionState != ExecutionState.FINISHING && executionState != ExecutionState.FINISHED) {
+			if (executionState != ExecutionState.RUNNING && executionState != ExecutionState.FINISHING
+					&& executionState != ExecutionState.FINISHED) {
 
 				if (executionState == ExecutionState.ASSIGNED) {
 
@@ -1037,73 +951,6 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 
 		// Hand it over to the executor service
 		this.executorService.execute(runnable);
-	}
-
-	/**
-	 * Collects all vertices with checkpoints from the given execution graph and advises the corresponding task managers
-	 * to remove those checkpoints.
-	 * 
-	 * @param executionGraph
-	 *        the execution graph from which the checkpoints shall be removed
-	 */
-	private void removeAllCheckpoints(final ExecutionGraph executionGraph) {
-
-		// Group vertex IDs by assigned instance
-		final Map<AbstractInstance, SerializableArrayList<ExecutionVertexID>> instanceMap = new HashMap<AbstractInstance, SerializableArrayList<ExecutionVertexID>>();
-		final Iterator<ExecutionVertex> it = new ExecutionGraphIterator(executionGraph, true);
-		while (it.hasNext()) {
-
-			final ExecutionVertex vertex = it.next();
-			final AllocatedResource allocatedResource = vertex.getAllocatedResource();
-			if (allocatedResource == null) {
-				continue;
-			}
-
-			final AbstractInstance abstractInstance = allocatedResource.getInstance();
-			if (abstractInstance == null) {
-				continue;
-			}
-
-			SerializableArrayList<ExecutionVertexID> vertexIDs = instanceMap.get(abstractInstance);
-			if (vertexIDs == null) {
-				vertexIDs = new SerializableArrayList<ExecutionVertexID>();
-				instanceMap.put(abstractInstance, vertexIDs);
-			}
-			vertexIDs.add(vertex.getID());
-		}
-
-		// Finally, trigger the removal of the checkpoints at each instance
-		final Iterator<Map.Entry<AbstractInstance, SerializableArrayList<ExecutionVertexID>>> it2 = instanceMap
-			.entrySet().iterator();
-		while (it2.hasNext()) {
-
-			final Map.Entry<AbstractInstance, SerializableArrayList<ExecutionVertexID>> entry = it2.next();
-			final AbstractInstance abstractInstance = entry.getKey();
-			if (abstractInstance == null) {
-				LOG.error("Cannot remove checkpoint: abstractInstance is null");
-				continue;
-			}
-
-			if (abstractInstance instanceof DummyInstance) {
-				continue;
-			}
-
-			final Runnable runnable = new Runnable() {
-
-				@Override
-				public void run() {
-
-					try {
-						abstractInstance.removeCheckpoints(entry.getValue());
-					} catch (IOException ioe) {
-						LOG.error(StringUtils.stringifyException(ioe));
-					}
-				}
-			};
-
-			// Hand it over to the executor service
-			this.executorService.execute(runnable);
-		}
 	}
 
 	/**
@@ -1323,68 +1170,4 @@ public class JobManager implements DeploymentManager, ExtendedManagementProtocol
 		return new InputSplitWrapper(jobID, this.inputSplitManager.getNextInputSplit(vertex, sequenceNumber.getValue()));
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void updateCheckpointState(final TaskCheckpointState taskCheckpointState) throws IOException {
-
-		// Get the graph object for this
-		final JobID jobID = taskCheckpointState.getJobID();
-		final ExecutionGraph executionGraph = this.scheduler.getExecutionGraphByID(jobID);
-		if (executionGraph == null) {
-			LOG.error("Cannot find execution graph for job " + taskCheckpointState.getJobID()
-				+ " to update checkpoint state");
-			return;
-		}
-
-		final ExecutionVertex vertex = executionGraph.getVertexByID(taskCheckpointState.getVertexID());
-		if (vertex == null) {
-			LOG.error("Cannot find vertex with ID " + taskCheckpointState.getVertexID()
-				+ " to update checkpoint state");
-			return;
-		}
-
-		final Runnable taskStateChangeRunnable = new Runnable() {
-
-			@Override
-			public void run() {
-
-				vertex.updateCheckpointState(taskCheckpointState.getCheckpointState());
-			}
-		};
-
-		// Hand over to the executor service, as this may result in a longer operation with several IPC operations
-		executionGraph.executeCommand(taskStateChangeRunnable);
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void sendData(final PluginID pluginID, final IOReadableWritable data) throws IOException {
-
-		final JobManagerPlugin jmp = this.jobManagerPlugins.get(pluginID);
-		if (jmp == null) {
-			LOG.error("Cannot find job manager plugin for plugin ID " + pluginID);
-			return;
-		}
-
-		jmp.sendData(data);
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public IOReadableWritable requestData(final PluginID pluginID, final IOReadableWritable data) throws IOException {
-
-		final JobManagerPlugin jmp = this.jobManagerPlugins.get(pluginID);
-		if (jmp == null) {
-			LOG.error("Cannot find job manager plugin for plugin ID " + pluginID);
-			return null;
-		}
-
-		return jmp.requestData(data);
-	}
 }

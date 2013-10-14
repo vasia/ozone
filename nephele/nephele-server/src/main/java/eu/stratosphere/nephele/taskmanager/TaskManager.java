@@ -21,7 +21,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +42,6 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import eu.stratosphere.nephele.checkpointing.ReplayTask;
-import eu.stratosphere.nephele.checkpointing.CheckpointUtils;
 import eu.stratosphere.nephele.configuration.ConfigConstants;
 import eu.stratosphere.nephele.configuration.Configuration;
 import eu.stratosphere.nephele.configuration.GlobalConfiguration;
@@ -58,33 +55,26 @@ import eu.stratosphere.nephele.execution.librarycache.LibraryCacheManager;
 import eu.stratosphere.nephele.execution.librarycache.LibraryCacheProfileRequest;
 import eu.stratosphere.nephele.execution.librarycache.LibraryCacheProfileResponse;
 import eu.stratosphere.nephele.execution.librarycache.LibraryCacheUpdate;
-import eu.stratosphere.nephele.executiongraph.CheckpointState;
 import eu.stratosphere.nephele.executiongraph.ExecutionVertexID;
 import eu.stratosphere.nephele.instance.HardwareDescription;
 import eu.stratosphere.nephele.instance.HardwareDescriptionFactory;
 import eu.stratosphere.nephele.instance.InstanceConnectionInfo;
-import eu.stratosphere.nephele.io.IOReadableWritable;
 import eu.stratosphere.nephele.io.channels.ChannelID;
 import eu.stratosphere.nephele.ipc.RPC;
 import eu.stratosphere.nephele.ipc.Server;
 import eu.stratosphere.nephele.jobgraph.JobID;
 import eu.stratosphere.nephele.net.NetUtils;
-import eu.stratosphere.nephele.plugins.PluginID;
-import eu.stratosphere.nephele.plugins.PluginManager;
-import eu.stratosphere.nephele.plugins.TaskManagerPlugin;
 import eu.stratosphere.nephele.profiling.ProfilingUtils;
 import eu.stratosphere.nephele.profiling.TaskManagerProfiler;
 import eu.stratosphere.nephele.protocols.ChannelLookupProtocol;
 import eu.stratosphere.nephele.protocols.InputSplitProviderProtocol;
 import eu.stratosphere.nephele.protocols.JobManagerProtocol;
-import eu.stratosphere.nephele.protocols.PluginCommunicationProtocol;
 import eu.stratosphere.nephele.protocols.TaskOperationProtocol;
 import eu.stratosphere.nephele.services.iomanager.IOManager;
 import eu.stratosphere.nephele.services.memorymanager.MemoryManager;
 import eu.stratosphere.nephele.services.memorymanager.spi.DefaultMemoryManager;
 import eu.stratosphere.nephele.taskmanager.bytebuffered.ByteBufferedChannelManager;
 import eu.stratosphere.nephele.taskmanager.bytebuffered.InsufficientResourcesException;
-import eu.stratosphere.nephele.taskmanager.runtime.EnvelopeConsumptionLog;
 import eu.stratosphere.nephele.taskmanager.runtime.RuntimeTask;
 import eu.stratosphere.nephele.util.SerializableArrayList;
 import eu.stratosphere.nephele.util.StringUtils;
@@ -97,7 +87,7 @@ import eu.stratosphere.nephele.util.StringUtils;
  * 
  * @author warneke
  */
-public class TaskManager implements TaskOperationProtocol, PluginCommunicationProtocol {
+public class TaskManager implements TaskOperationProtocol {
 
 	private static final Log LOG = LogFactory.getLog(TaskManager.class);
 
@@ -106,8 +96,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 	private final InputSplitProviderProtocol globalInputSplitProvider;
 
 	private final ChannelLookupProtocol lookupService;
-
-	private final PluginCommunicationProtocol pluginCommunicationService;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 
@@ -145,30 +133,17 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 
 	private final HardwareDescription hardwareDescription;
 
-	private final Map<PluginID, TaskManagerPlugin> taskManagerPlugins;
-
 	/**
 	 * Stores whether the task manager has already been shut down.
 	 */
 	private boolean isShutDown = false;
-
+	
 	/**
 	 * Constructs a new task manager, starts its IPC service and attempts to discover the job manager to
 	 * receive an initial configuration. All parameters are obtained from the 
 	 * {@link GlobalConfiguration}, which must be loaded prior to instantiating the task manager.
 	 */
 	public TaskManager() throws Exception {
-		this(null);
-	}
-	
-	/**
-	 * Constructs a new task manager, starts its IPC service and attempts to discover the job manager to
-	 * receive an initial configuration. All parameters are obtained from the 
-	 * {@link GlobalConfiguration}, which must be loaded prior to instantiating the task manager.
-	 *  
-	 * @param pluginDir The directory to load plug-ins from.
-	 */
-	public TaskManager(String pluginDir) throws Exception {
 		
 		// IMPORTANT! At this point, the GlobalConfiguration must have been read!
 
@@ -249,17 +224,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 		}
 		this.lookupService = lookupService;
 
-		// Try to create local stub for the plugin communication service
-		PluginCommunicationProtocol pluginCommunicationService = null;
-		try {
-			pluginCommunicationService = RPC.getProxy(PluginCommunicationProtocol.class, jobManagerAddress, 
-				NetUtils.getSocketFactory());
-		} catch (IOException e) {
-			LOG.error(StringUtils.stringifyException(e));
-			throw new Exception("Failed to initialize plugin communication protocol. " + e.getMessage(), e);
-		}
-		this.pluginCommunicationService = pluginCommunicationService;
-
 		// Start local RPC server
 		Server taskManagerServer = null;
 		try {
@@ -332,13 +296,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 
 		this.ioManager = new IOManager(tmpDirPaths);
 
-		// Load the plugins
-		if (pluginDir != null) {
-			this.taskManagerPlugins = PluginManager.getTaskManagerPlugins(this, pluginDir);
-		} else {
-			this.taskManagerPlugins = Collections.emptyMap();
-		}
-
 		// Add shutdown hook for clean up tasks
 		Runtime.getRuntime().addShutdownHook(new TaskManagerCleanUp(this));
 	}
@@ -375,7 +332,7 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 		// Create a new task manager object
 		TaskManager taskManager = null;
 		try {
-			taskManager = new TaskManager(configDir);
+			taskManager = new TaskManager();
 		} catch (Exception e) {
 			LOG.fatal("Taskmanager startup failed:" + StringUtils.stringifyException(e));
 			System.exit(FAILURERETURNCODE);
@@ -481,42 +438,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 		return new TaskKillResult(id, AbstractTaskResult.ReturnCode.SUCCESS);
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public TaskCheckpointResult requestCheckpointDecision(ExecutionVertexID id) throws IOException {
-
-		final Task task = this.runningTasks.get(id);
-
-		if (task == null) {
-			final TaskCheckpointResult taskCheckpointResult = new TaskCheckpointResult(id,
-					AbstractTaskResult.ReturnCode.TASK_NOT_FOUND);
-			taskCheckpointResult.setDescription("No task with ID + " + id + " is currently running");
-			return taskCheckpointResult;
-		}
-
-		if (!(task instanceof RuntimeTask)) {
-			final TaskCheckpointResult taskCheckpointResult = new TaskCheckpointResult(id,
-				AbstractTaskResult.ReturnCode.TASK_NOT_FOUND);
-			taskCheckpointResult.setDescription("No task with ID + " + id + " is not a runtime task");
-			return taskCheckpointResult;
-		}
-
-		final RuntimeTask runtimeTask = (RuntimeTask) task;
-
-		// Request a checkpoint decision and return
-		if (!runtimeTask.requestCheckpointDecision()) {
-			final TaskCheckpointResult taskCheckpointResult = new TaskCheckpointResult(id,
-				AbstractTaskResult.ReturnCode.TASK_NOT_FOUND);
-			taskCheckpointResult.setDescription("No task with ID + " + id + " has not yet created a checkpoint");
-		}
-
-		reportAsyncronousEvent(id);
-
-		return new TaskCheckpointResult(id, AbstractTaskResult.ReturnCode.SUCCESS);
-	}
-
 	private void reportAsyncronousEvent(final ExecutionVertexID vertexID) {
 
 		this.byteBufferedChannelManager.reportAsynchronousEvent(vertexID);
@@ -550,13 +471,12 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 			}
 
 			final Configuration jobConfiguration = tdd.getJobConfiguration();
-			final CheckpointState initialCheckpointState = tdd.getInitialCheckpointState();
 			final Set<ChannelID> activeOutputChannels = null; // TODO: Fix me
 
 			// Register the task
 			Task task;
 			try {
-				task = createAndRegisterTask(vertexID, jobConfiguration, re, initialCheckpointState,
+				task = createAndRegisterTask(vertexID, jobConfiguration, re,
 					activeOutputChannels);
 			} catch (InsufficientResourcesException e) {
 				final TaskSubmissionResult result = new TaskSubmissionResult(vertexID,
@@ -604,8 +524,8 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 	 * @return the task to be started or <code>null</code> if a task with the same ID was already running
 	 */
 	private Task createAndRegisterTask(final ExecutionVertexID id, final Configuration jobConfiguration,
-			final RuntimeEnvironment environment, final CheckpointState initialCheckpointState,
-			final Set<ChannelID> activeOutputChannels) throws InsufficientResourcesException, IOException {
+			final RuntimeEnvironment environment, final Set<ChannelID> activeOutputChannels)
+					throws InsufficientResourcesException, IOException {
 
 		if (id == null) {
 			throw new IllegalArgumentException("Argument id is null");
@@ -613,10 +533,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 
 		if (environment == null) {
 			throw new IllegalArgumentException("Argument environment is null");
-		}
-
-		if (initialCheckpointState == null) {
-			throw new IllegalArgumentException("Argument initialCheckpointState is null");
 		}
 
 		// Task creation and registration must be atomic
@@ -627,24 +543,12 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 			final Task runningTask = this.runningTasks.get(id);
 			boolean registerTask = true;
 			if (runningTask == null) {
-
-				// Is there a complete checkpoint for this task
-				if (CheckpointUtils.hasCompleteCheckpointAvailable(id)) {
-					task = new ReplayTask(id, environment, this);
-				} else {
-					task = new RuntimeTask(id, environment, initialCheckpointState, this);
-				}
+				task = new RuntimeTask(id, environment, this);
 			} else {
 
 				if (runningTask instanceof RuntimeTask) {
-
-					// Check if there at least a partial checkpoint available
-					if (CheckpointUtils.hasPartialCheckpointAvailable(id)) {
-						task = new ReplayTask((RuntimeTask) runningTask, this);
-					} else {
-						// Task is already running
-						return null;
-					}
+					// Task is already running
+					return null;
 				} else {
 					// There is already a replay task running, we will simply restart it
 					task = runningTask;
@@ -654,9 +558,7 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 			}
 
 			final Environment ee = task.getEnvironment();
-
 			if (registerTask) {
-
 				// Register the task with the byte buffered channel manager
 				this.byteBufferedChannelManager.register(task, activeOutputChannels);
 
@@ -668,14 +570,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 				// Register environment, input, and output gates for profiling
 				if (enableProfiling) {
 					task.registerProfiler(this.profiler, jobConfiguration);
-				}
-
-				// Allow plugins to register their listeners for this task
-				if (!this.taskManagerPlugins.isEmpty()) {
-					final Iterator<TaskManagerPlugin> it = this.taskManagerPlugins.values().iterator();
-					while (it.hasNext()) {
-						it.next().registerTask(id, jobConfiguration, ee);
-					}
 				}
 
 				this.runningTasks.put(id, task);
@@ -710,14 +604,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 
 			// Unregister task from memory manager
 			task.unregisterMemoryManager(this.memoryManager);
-
-			// Allow plugins to unregister their listeners for this task
-			if (!this.taskManagerPlugins.isEmpty()) {
-				final Iterator<TaskManagerPlugin> it = this.taskManagerPlugins.values().iterator();
-				while (it.hasNext()) {
-					it.next().unregisterTask(id, task.getEnvironment());
-				}
-			}
 
 			// Unregister task from library cache manager
 			try {
@@ -783,18 +669,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 		}
 	}
 
-	public void checkpointStateChanged(final JobID jobID, final ExecutionVertexID id,
-			final CheckpointState newCheckpointState) {
-
-		synchronized (this.jobManager) {
-			try {
-				this.jobManager.updateCheckpointState(new TaskCheckpointState(jobID, id, newCheckpointState));
-			} catch (IOException e) {
-				LOG.error(StringUtils.stringifyException(e));
-			}
-		}
-	}
-
 	/**
 	 * Shuts the task manager down.
 	 */
@@ -814,9 +688,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 
 		// Stop RPC proxy for the lookup service
 		RPC.stopProxy(this.lookupService);
-
-		// Stop RPC proxy for the plugin communication service
-		RPC.stopProxy(this.pluginCommunicationService);
 
 		// Shut down the own RPC server
 		this.taskManagerServer.stop();
@@ -848,12 +719,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 					LOG.debug(StringUtils.stringifyException(e));
 				}
 			}
-		}
-
-		// Shut down the plugins
-		final Iterator<TaskManagerPlugin> it = this.taskManagerPlugins.values().iterator();
-		while (it.hasNext()) {
-			it.next().shutdown();
 		}
 
 		this.isShutDown = true;
@@ -893,35 +758,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 	 * {@inheritDoc}
 	 */
 	@Override
-	public void removeCheckpoints(final List<ExecutionVertexID> listOfVertexIDs) throws IOException {
-
-		final List<ExecutionVertexID> threadSafeList = Collections.unmodifiableList(listOfVertexIDs);
-
-		final Runnable r = new Runnable() {
-
-			@Override
-			public void run() {
-
-				final Iterator<ExecutionVertexID> it = threadSafeList.iterator();
-				while (it.hasNext()) {
-
-					final ExecutionVertexID vertexID = it.next();
-
-					// Try to remove the envelope consumption log first
-					EnvelopeConsumptionLog.removeLog(vertexID);
-
-					CheckpointUtils.removeCheckpoint(vertexID);
-				}
-			}
-		};
-
-		this.executorService.execute(r);
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
 	public void logBufferUtilization() throws IOException {
 
 		this.byteBufferedChannelManager.logBufferUtilization();
@@ -954,74 +790,6 @@ public class TaskManager implements TaskOperationProtocol, PluginCommunicationPr
 	public void invalidateLookupCacheEntries(final Set<ChannelID> channelIDs) throws IOException {
 
 		this.byteBufferedChannelManager.invalidateLookupCacheEntries(channelIDs);
-	}
-
-	/**
-	 * Sends data from the plugin with the given ID to the respective component of the plugin running at the job
-	 * manager.
-	 * 
-	 * @param pluginID
-	 *        the ID of plugin
-	 * @param data
-	 *        the data to be sent
-	 * @throws IOException
-	 *         thrown if an I/O error occurs during the RPC call
-	 */
-	public void sendDataToJobManager(final PluginID pluginID, final IOReadableWritable data) throws IOException {
-
-		synchronized (this.pluginCommunicationService) {
-			this.pluginCommunicationService.sendData(pluginID, data);
-		}
-	}
-
-	/**
-	 * Requests data for the plugin with the given ID from the respective plugin component running at the job manager.
-	 * 
-	 * @param pluginID
-	 *        the ID of the plugin
-	 * @param data
-	 *        the data to specify the request
-	 * @return the requested data
-	 * @throws IOException
-	 *         thrown if an I/O error occurs during the RPC call
-	 */
-	public IOReadableWritable requestDataFromJobManager(final PluginID pluginID, final IOReadableWritable data)
-			throws IOException {
-
-		synchronized (this.pluginCommunicationService) {
-			return this.pluginCommunicationService.requestData(pluginID, data);
-		}
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void sendData(final PluginID pluginID, final IOReadableWritable data) throws IOException {
-
-		final TaskManagerPlugin tmp = this.taskManagerPlugins.get(pluginID);
-		if (tmp == null) {
-			LOG.error("Cannot find task manager plugin for plugin ID " + pluginID);
-			return;
-		}
-
-		tmp.sendData(data);
-
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public IOReadableWritable requestData(final PluginID pluginID, final IOReadableWritable data) throws IOException {
-
-		final TaskManagerPlugin tmp = this.taskManagerPlugins.get(pluginID);
-		if (tmp == null) {
-			LOG.error("Cannot find task manager plugin for plugin ID " + pluginID);
-			return null;
-		}
-
-		return tmp.requestData(data);
 	}
 
 	/**

@@ -15,12 +15,13 @@
 
 package eu.stratosphere.pact.test.iterative.nephele;
 
+import java.io.IOException;
+
 import eu.stratosphere.nephele.client.JobClient;
 import eu.stratosphere.nephele.client.JobExecutionException;
 import eu.stratosphere.nephele.configuration.Configuration;
 import eu.stratosphere.nephele.io.DistributionPattern;
 import eu.stratosphere.nephele.io.channels.ChannelType;
-import eu.stratosphere.nephele.io.compression.CompressionLevel;
 import eu.stratosphere.nephele.jobgraph.AbstractJobVertex;
 import eu.stratosphere.nephele.jobgraph.JobGraph;
 import eu.stratosphere.nephele.jobgraph.JobGraphDefinitionException;
@@ -29,14 +30,15 @@ import eu.stratosphere.nephele.jobgraph.JobOutputVertex;
 import eu.stratosphere.nephele.jobgraph.JobTaskVertex;
 import eu.stratosphere.nephele.template.AbstractInputTask;
 import eu.stratosphere.pact.common.io.FileInputFormat;
+import eu.stratosphere.pact.generic.contract.UserCodeClassWrapper;
+import eu.stratosphere.pact.generic.contract.UserCodeWrapper;
+import eu.stratosphere.pact.generic.io.InputFormat;
 import eu.stratosphere.pact.runtime.iterative.io.FakeOutputTask;
 import eu.stratosphere.pact.runtime.iterative.task.IterationSynchronizationSinkTask;
 import eu.stratosphere.pact.runtime.task.DataSinkTask;
 import eu.stratosphere.pact.runtime.task.DataSourceTask;
 import eu.stratosphere.pact.runtime.task.RegularPactTask;
 import eu.stratosphere.pact.runtime.task.util.TaskConfig;
-
-import java.io.IOException;
 
 public class JobGraphUtils {
 
@@ -49,8 +51,13 @@ public class JobGraphUtils {
 		JobClient client = new JobClient(graph, nepheleConfig);
 		client.submitJobAndWait();
 	}
+	
+	public static <T extends InputFormat<?,?>> JobInputVertex createInput(Class<? extends T> stub, String path, String name, JobGraph graph,
+			int degreeOfParallelism, int numSubTasksPerInstance) {
+		return createInput(new UserCodeClassWrapper<T>(stub), path, name, graph, degreeOfParallelism, numSubTasksPerInstance);
+	}
 
-	public static JobInputVertex createInput(Class<?> stubClass, String path, String name, JobGraph graph,
+	public static <T extends InputFormat<?,?>> JobInputVertex createInput(UserCodeWrapper<T> stub, String path, String name, JobGraph graph,
 			int degreeOfParallelism, int numSubTasksPerInstance)
 	{
 		JobInputVertex inputVertex = new JobInputVertex(name, graph);
@@ -60,7 +67,7 @@ public class JobGraphUtils {
 		inputVertex.setNumberOfSubtasks(degreeOfParallelism);
 		inputVertex.setNumberOfSubtasksPerInstance(numSubTasksPerInstance);
 		TaskConfig inputConfig = new TaskConfig(inputVertex.getConfiguration());
-		inputConfig.setStubClass(stubClass);
+		inputConfig.setStubWrapper(stub);
 		inputConfig.setStubParameter(FileInputFormat.FILE_PARAMETER_KEY, path);
 		return inputVertex;
 	}
@@ -75,7 +82,7 @@ public class JobGraphUtils {
 	public static void connect(AbstractJobVertex source, AbstractJobVertex target, ChannelType channelType,
 			DistributionPattern distributionPattern) throws JobGraphDefinitionException
 	{
-		source.connectTo(target, channelType, CompressionLevel.NO_COMPRESSION, distributionPattern);
+		source.connectTo(target, channelType, distributionPattern);
 	}
 
 	public static JobTaskVertex createTask(@SuppressWarnings("rawtypes") Class<? extends RegularPactTask> task, String name, JobGraph graph,

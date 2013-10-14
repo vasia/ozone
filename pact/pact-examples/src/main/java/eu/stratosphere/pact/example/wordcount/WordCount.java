@@ -15,8 +15,10 @@
 
 package eu.stratosphere.pact.example.wordcount;
 
+import java.io.Serializable;
 import java.util.Iterator;
 
+import eu.stratosphere.pact.client.LocalExecutor;
 import eu.stratosphere.pact.common.contract.FileDataSink;
 import eu.stratosphere.pact.common.contract.FileDataSource;
 import eu.stratosphere.pact.common.contract.MapContract;
@@ -47,14 +49,16 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 	 * The string is tokenized by whitespaces. For each token a new record is emitted,
 	 * where the token is the first field and an Integer(1) is the second field.
 	 */
-	public static class TokenizeLine extends MapStub {
+	public static class TokenizeLine extends MapStub implements Serializable {
+		private static final long serialVersionUID = 1L;
+		
 		// initialize reusable mutable objects
 		private final PactRecord outputRecord = new PactRecord();
 		private final PactString word = new PactString();
 		private final PactInteger one = new PactInteger(1);
 		
-		private final AsciiUtils.WhitespaceTokenizer tokenizer = 
-						new AsciiUtils.WhitespaceTokenizer();
+		private final AsciiUtils.WhitespaceTokenizer tokenizer =
+				new AsciiUtils.WhitespaceTokenizer();
 		
 		@Override
 		public void map(PactRecord record, Collector<PactRecord> collector) {
@@ -83,7 +87,8 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 	 */
 	@Combinable
 	@ConstantFields(0)
-	public static class CountWords extends ReduceStub {
+	public static class CountWords extends ReduceStub implements Serializable {
+		private static final long serialVersionUID = 1L;
 		
 		private final PactInteger cnt = new PactInteger();
 		
@@ -122,17 +127,17 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 		String dataInput = (args.length > 1 ? args[1] : "");
 		String output    = (args.length > 2 ? args[2] : "");
 
-		FileDataSource source = new FileDataSource(TextInputFormat.class, dataInput, "Input Lines");
+		FileDataSource source = new FileDataSource(new TextInputFormat(), dataInput, "Input Lines");
 		source.setParameter(TextInputFormat.CHARSET_NAME, "ASCII");		// comment out this line for UTF-8 inputs
-		MapContract mapper = MapContract.builder(TokenizeLine.class)
+		MapContract mapper = MapContract.builder(new TokenizeLine())
 			.input(source)
 			.name("Tokenize Lines")
 			.build();
-		ReduceContract reducer = new ReduceContract.Builder(CountWords.class, PactString.class, 0)
+		ReduceContract reducer = ReduceContract.builder(CountWords.class, PactString.class, 0)
 			.input(mapper)
 			.name("Count Words")
 			.build();
-		FileDataSink out = new FileDataSink(RecordOutputFormat.class, output, reducer, "Word Counts");
+		FileDataSink out = new FileDataSink(new RecordOutputFormat(), output, reducer, "Word Counts");
 		RecordOutputFormat.configureRecordFormat(out)
 			.recordDelimiter('\n')
 			.fieldDelimiter(' ')
@@ -150,5 +155,12 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 	@Override
 	public String getDescription() {
 		return "Parameters: [numSubStasks] [input] [output]";
+	}
+	
+	public static void main(String[] args) throws Exception {
+		WordCount wc = new WordCount();
+		Plan plan = wc.getPlan("1", "file:///path/to/input", "file:///path/to/output");
+		LocalExecutor.execute(plan);
+		System.exit(0);
 	}
 }

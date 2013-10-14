@@ -7,7 +7,8 @@
 	<parent>
 		<artifactId>pact</artifactId>
 		<groupId>eu.stratosphere</groupId>
-		<version>0.2</version>
+		<version>0.4-ozone-SNAPSHOT</version>
+		<relativePath>..</relativePath>
 	</parent>
 
 	<artifactId>pact-examples</artifactId>
@@ -21,8 +22,13 @@
 			<groupId>eu.stratosphere</groupId>
 			<artifactId>pact-common</artifactId>
 			<version>${project.version}</version>
-			<scope>compile</scope>
 		</dependency>
+		
+		<dependency>
+            <groupId>eu.stratosphere</groupId>
+            <artifactId>pact-clients</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
 	</dependencies>
 
@@ -39,7 +45,7 @@
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>2.4</version>
 				<executions>
-				
+
 					<!-- Connected Components -->
 					<execution>
 						<id>ConnectedComponents</id>
@@ -61,6 +67,7 @@
 							</includes>
 						</configuration>
 					</execution>
+<<<<<<< HEAD
 				
 					<!-- Dependency Connected Components -->
 					<execution>
@@ -84,6 +91,9 @@
 						</configuration>
 					</execution>
 
+=======
+		
+>>>>>>> 526a8697ce910d1f19bb0ba46ac0b69e6bb66209
 					<!-- DanglingPageRank -->
 					<execution>
 						<id>DanglingPageRank</id>
@@ -328,7 +338,9 @@
 						</configuration>
 					</execution>
 
-					<!-- TeraSort -->
+					<!-- TeraSort
+					TeraSort is currently not working, because of problems with the RangePartioner (see https://github.com/stratosphere/stratosphere/issues/7).
+					It should be included again after fixing the issue.
 					<execution>
 						<id>TeraSort</id>
 						<phase>package</phase>
@@ -349,10 +361,100 @@
 								<include>**/sort/terasort/*.class</include>
 							</includes>
 						</configuration>
-					</execution>
+					</execution> -->
 				</executions>
 			</plugin>
 
 		</plugins>
 	</build>
+
+	<!-- See main pom.xml for explanation of profiles -->
+	<profiles>
+		<profile>
+			<id>hadoop-1</id>
+			<activation>
+				<property>
+					<!-- Please do not remove the 'hadoop1' comment. See ./tools/generate_specific_pom.sh -->
+					<!--hadoop1--><name>!hadoop.profile</name>
+				</property>
+			</activation>
+			<dependencies>
+				<!-- No extra dependencies: pact-hbase is currently not compatible with Hadoop v1 -->
+			</dependencies>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>default-compile</id>
+								<phase>compile</phase>
+								<configuration>
+									<excludes>
+										<exclude>**/hbase/*.java</exclude>
+									</excludes>
+								</configuration>
+								<goals>
+									<goal>compile</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>hadoop-2</id>
+			<activation>
+				<property>
+					<!-- Please do not remove the 'hadoop1' comment. See ./tools/generate_specific_pom.sh -->
+					<!--hadoop2--><name>hadoop.profile</name><value>2</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>eu.stratosphere</groupId>
+					<artifactId>pact-hbase</artifactId>
+					<version>${project.version}</version>
+				</dependency>
+			</dependencies>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-jar-plugin</artifactId>
+						<version>2.4</version>
+						<executions>
+		
+							<!-- HBaseExample -->
+							<execution>
+								<id>HBaseExample</id>
+								<phase>package</phase>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+								<configuration>
+									<classifier>HBaseExample</classifier>
+		
+									<archive>
+										<manifestEntries>
+											<Pact-Assembler-Class>eu.stratosphere.pact.example.hbase.HBaseReadExample</Pact-Assembler-Class>
+										</manifestEntries>
+									</archive>
+		
+									<includes>
+										<include>**/hbase/*.class</include>
+										<include>**/util/ConfigUtils.class</include>
+									</includes>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		
+	</profiles>
+  
 </project>

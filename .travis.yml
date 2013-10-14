@@ -1,0 +1,20 @@
+language: java
+jdk:
+  - oraclejdk7
+  - openjdk7
+  - openjdk6
+env:
+    global: 
+        - secure: "QoLd3npmApUw20q+KTt+6Il07bn/edl5pP3jmEqR+rXQXVA2kogjkZerZ5QdM2iQJha7D1M2Y4BTcsJ2Ty7biTxUZkDl+RXz6kpeHPX2alax/KO7mqrJuEfuPAQvaIdHNmKEmdiU/fLMn2q2HllE5MP7FzUNKD5YJIzh1IekPA8="
+        - secure: "WzMGwNwWwWw62kwvknMGS4W1zy3oRVihitCjjd5wqk/4JMTeWr+oAMv0GfA8GbOuOcYwA7JNxGXQlBMtn45+/PMLJgnsLxYUbqCD2ybwMBLlnembGYoRPABp5zkuzRmU3G2cbMdu/7VwvlTffEPPG/jqAFLKxmvG0oIOtPtk3lg="
+    matrix:
+        - PROFILE=
+        - PROFILE="-Dhadoop.profile=2"
+
+install: true
+
+script: "mvn $PROFILE clean verify"
+
+# deploy if the first job is successful; should be replaced by an after_all_success if travis finally supports it
+after_success: 
+- "./tools/deploy_to_maven.sh"

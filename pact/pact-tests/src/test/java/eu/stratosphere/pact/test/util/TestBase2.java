@@ -21,12 +21,19 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -64,6 +71,13 @@ public abstract class TestBase2 {
 		verifyJvmOptions();
 		this.config = config;
 		this.tempFiles = new ArrayList<File>();
+		
+		Logger root = Logger.getRootLogger();
+		root.removeAllAppenders();
+		PatternLayout layout = new PatternLayout("%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n");
+		ConsoleAppender appender = new ConsoleAppender(layout, "System.err");
+		root.addAppender(appender);
+		root.setLevel(Level.WARN);
 	}
 	
 
@@ -76,7 +90,6 @@ public abstract class TestBase2 {
 
 	@Before
 	public void startCluster() throws Exception {
-		System.err.println("######################### STARTING LOCAL EXECUTION CONTEXT #########################");
 		this.executer = new NepheleMiniCluster();
 		this.executer.start();
 	}
@@ -85,7 +98,6 @@ public abstract class TestBase2 {
 	public void stopCluster() throws Exception {
 		try {
 			if (this.executer != null) {
-				System.err.println("######################### STOPPING LOCAL EXECUTION CONTEXT #########################");
 				this.executer.stop();
 				this.executer = null;
 				FileSystem.closeAll();
@@ -121,6 +133,7 @@ public abstract class TestBase2 {
 		
 		try {
 			JobClient client = this.executer.getJobClient(jobGraph);
+			client.setConsoleStreamForReporting(getNullPrintStream());
 			client.submitJobAndWait();
 		} catch(Exception e) {
 			System.err.println(e.getMessage());
@@ -139,23 +152,27 @@ public abstract class TestBase2 {
 	}
 	
 	public String getTempDirPath(String dirName) throws IOException {
-		File baseDir = new File(System.getProperty("java.io.tmpdir"));
-		File f = new File(baseDir, dirName);
+		File f = createAndRegisterTempFile(dirName);
 		return "file://" + f.getAbsolutePath();
 	}
 	
 	public String getTempFilePath(String fileName) throws IOException {
-		File baseDir = new File(System.getProperty("java.io.tmpdir"));
-		File f = new File(baseDir, fileName);
+		File f = createAndRegisterTempFile(fileName);
 		return "file://" + f.getAbsolutePath();
 	}
 	
 	public String createTempFile(String fileName, String contents) throws IOException {
+		File f = createAndRegisterTempFile(fileName);
+		Files.write(contents, f, Charsets.UTF_8);
+		return "file://" + f.getAbsolutePath();
+	}
+	
+	private File createAndRegisterTempFile(String fileName) throws IOException {
 		File baseDir = new File(System.getProperty("java.io.tmpdir"));
 		File f = new File(baseDir, fileName);
 		
 		if (f.exists()) {
-			Files.deleteRecursively(f);
+			deleteRecursively(f);
 		}
 		
 		File parentToDelete = f;
@@ -171,10 +188,8 @@ public abstract class TestBase2 {
 		}
 		
 		Files.createParentDirs(f);
-		Files.write(contents, f, Charsets.UTF_8);
-		
 		this.tempFiles.add(parentToDelete);
-		return "file://" + f.getAbsolutePath();
+		return f;
 	}
 	
 	public BufferedReader[] getResultReader(String resultPath) throws IOException {
@@ -218,7 +233,7 @@ public abstract class TestBase2 {
 	private void deleteAllTempFiles() throws IOException {
 		for (File f : this.tempFiles) {
 			if (f.exists()) {
-				Files.deleteRecursively(f);
+				deleteRecursively(f);
 			}
 		}
 	}
@@ -405,6 +420,14 @@ public abstract class TestBase2 {
 		return configs;
 	}
 	
+	private static void deleteRecursively (File f) throws IOException {
+		if (f.isDirectory()) {
+			FileUtils.deleteDirectory(f);
+		} else {
+			f.delete();
+		}
+	}
+	
 	public void readAllResultLines(List<String> target, String resultPath) throws IOException {
 		for (BufferedReader reader : getResultReader(resultPath)) {
 			String s = null;
@@ -426,5 +449,12 @@ public abstract class TestBase2 {
 		
 		Assert.assertEquals("Different number of lines in expected and obtained result.", expected.length, result.length);
 		Assert.assertArrayEquals(expected, result);
+	}
+	
+	public static PrintStream getNullPrintStream() {
+		return new PrintStream(new OutputStream() {
+			@Override
+			public void write(int b) throws IOException {}
+		});
 	}
 }

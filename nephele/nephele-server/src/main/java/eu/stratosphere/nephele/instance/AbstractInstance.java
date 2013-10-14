@@ -26,16 +26,12 @@ import eu.stratosphere.nephele.execution.librarycache.LibraryCacheProfileRequest
 import eu.stratosphere.nephele.execution.librarycache.LibraryCacheProfileResponse;
 import eu.stratosphere.nephele.execution.librarycache.LibraryCacheUpdate;
 import eu.stratosphere.nephele.executiongraph.ExecutionVertexID;
-import eu.stratosphere.nephele.io.IOReadableWritable;
 import eu.stratosphere.nephele.io.channels.ChannelID;
 import eu.stratosphere.nephele.ipc.RPC;
 import eu.stratosphere.nephele.jobgraph.JobID;
 import eu.stratosphere.nephele.net.NetUtils;
-import eu.stratosphere.nephele.plugins.PluginID;
-import eu.stratosphere.nephele.protocols.PluginCommunicationProtocol;
 import eu.stratosphere.nephele.protocols.TaskOperationProtocol;
 import eu.stratosphere.nephele.taskmanager.TaskCancelResult;
-import eu.stratosphere.nephele.taskmanager.TaskCheckpointResult;
 import eu.stratosphere.nephele.taskmanager.TaskKillResult;
 import eu.stratosphere.nephele.taskmanager.TaskSubmissionResult;
 import eu.stratosphere.nephele.topology.NetworkNode;
@@ -67,11 +63,6 @@ public abstract class AbstractInstance extends NetworkNode {
 	 * Stores the RPC stub object for the instance's task manager.
 	 */
 	private TaskOperationProtocol taskManager = null;
-
-	/**
-	 * Stores the RPC stub object for the instance's task manager plugin component.
-	 */
-	private PluginCommunicationProtocol taskManagerPluginComponent = null;
 
 	/**
 	 * Constructs an abstract instance object.
@@ -123,36 +114,6 @@ public abstract class AbstractInstance extends NetworkNode {
 		if (this.taskManager != null) {
 			RPC.stopProxy(this.taskManager);
 			this.taskManager = null;
-		}
-	}
-
-	/**
-	 * Creates or returns the RPC stub object for the instance's task manager plugin component.
-	 * 
-	 * @return the RPC stub object for the instance's task manager plugin component
-	 * @throws IOException
-	 *         thrown if the RPC stub object for the task manager plugin component cannot be created
-	 */
-	private PluginCommunicationProtocol getTaskManagerPluginProxy() throws IOException {
-
-		if (this.taskManagerPluginComponent == null) {
-
-			this.taskManagerPluginComponent = RPC.getProxy(PluginCommunicationProtocol.class, 
-				new InetSocketAddress(getInstanceConnectionInfo().getAddress(), 
-					getInstanceConnectionInfo().getIPCPort()), NetUtils.getSocketFactory());
-		}
-
-		return this.taskManagerPluginComponent;
-	}
-
-	/**
-	 * Destroys and removes the RPC stub object for this instance's task manager plugin component.
-	 */
-	private void destroyTaskManagerPluginProxy() {
-
-		if (this.taskManagerPluginComponent != null) {
-			RPC.stopProxy(this.taskManagerPluginComponent);
-			this.taskManagerPluginComponent = null;
 		}
 	}
 
@@ -247,11 +208,6 @@ public abstract class AbstractInstance extends NetworkNode {
 		return getTaskManagerProxy().cancelTask(id);
 	}
 
-	public synchronized TaskCheckpointResult requestCheckpointDecision(final ExecutionVertexID id) throws IOException {
-
-		return getTaskManagerProxy().requestCheckpointDecision(id);
-	}
-
 	/**
 	 * Kills the task identified by the given ID at the instance's
 	 * {@link eu.stratosphere.nephele.taskmanager.TaskManager}.
@@ -265,20 +221,6 @@ public abstract class AbstractInstance extends NetworkNode {
 	public synchronized TaskKillResult killTask(final ExecutionVertexID id) throws IOException {
 
 		return getTaskManagerProxy().killTask(id);
-	}
-
-	/**
-	 * Removes the checkpoints identified by the given list of vertex IDs at the instance's
-	 * {@link eu.stratosphere.nephele.taskmanager.TaskManager}.
-	 * 
-	 * @param listOfVertexIDs
-	 *        the list of vertex IDs which identify the checkpoints to be removed
-	 * @throws IOException
-	 *         thrown if an error occurs while transmitting the request
-	 */
-	public synchronized void removeCheckpoints(final List<ExecutionVertexID> listOfVertexIDs) throws IOException {
-
-		getTaskManagerProxy().removeCheckpoints(listOfVertexIDs);
 	}
 
 	/**
@@ -339,38 +281,6 @@ public abstract class AbstractInstance extends NetworkNode {
 	}
 
 	/**
-	 * Connects to the plugin component of this instance's task manager and sends data to the plugin with the given ID.
-	 * 
-	 * @param pluginID
-	 *        the ID of the plugin to send data to
-	 * @param data
-	 *        the data to send
-	 * @throws IOException
-	 *         thrown if an error occurs while sending the data from the plugin
-	 */
-	public synchronized void sendData(final PluginID pluginID, final IOReadableWritable data) throws IOException {
-
-		getTaskManagerPluginProxy().sendData(pluginID, data);
-	}
-
-	/**
-	 * Connects to the plugin component of this instance's task manager and requests data from the plugin with the given
-	 * ID.
-	 * 
-	 * @param pluginID
-	 *        the ID of the plugin to request data from
-	 * @param data
-	 *        data to specify the request
-	 * @return the requested data, possibly <code>null</code>
-	 * @throws IOException
-	 *         thrown if an error occurs while requesting the data from the plugin
-	 */
-	public synchronized IOReadableWritable requestData(PluginID pluginID, IOReadableWritable data) throws IOException {
-
-		return getTaskManagerPluginProxy().requestData(pluginID, data);
-	}
-
-	/**
 	 * Invalidates the entries identified by the given channel IDs from the remote task manager's receiver lookup cache.
 	 * 
 	 * @param channelIDs
@@ -389,7 +299,6 @@ public abstract class AbstractInstance extends NetworkNode {
 	public synchronized void destroyProxies() {
 
 		destroyTaskManagerProxy();
-		destroyTaskManagerPluginProxy();
 
 	}
 }

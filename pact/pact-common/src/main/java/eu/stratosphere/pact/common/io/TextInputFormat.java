@@ -34,6 +34,7 @@ import eu.stratosphere.pact.common.type.base.PactString;
  * only a single string, namely the line.
  */
 public class TextInputFormat extends DelimitedInputFormat {
+	private static final long serialVersionUID = 1L;
 	
 	public static final String CHARSET_NAME = "textformat.charset";
 	
@@ -94,8 +95,8 @@ public class TextInputFormat extends DelimitedInputFormat {
 				byteWrapper = ByteBuffer.wrap(bytes, 0, bytes.length);
 				this.byteWrapper = byteWrapper;
 			}
-			byteWrapper.position(offset);
 			byteWrapper.limit(offset + numBytes);
+			byteWrapper.position(offset);
 				
 			try {
 				CharBuffer result = this.decoder.decode(byteWrapper);

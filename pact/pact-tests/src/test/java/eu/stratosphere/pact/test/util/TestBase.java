@@ -36,6 +36,10 @@ import java.util.StringTokenizer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -69,6 +73,13 @@ public abstract class TestBase {
 
 	public TestBase(Configuration testConfig) {
 		this(testConfig, Constants.DEFAULT_TEST_CONFIG);
+		
+		Logger root = Logger.getRootLogger();
+		root.removeAllAppenders();
+		PatternLayout layout = new PatternLayout("%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n");
+		ConsoleAppender appender = new ConsoleAppender(layout, "System.err");
+		root.addAppender(appender);
+		root.setLevel(Level.WARN);
 	}
 
 	private void verifyJvmOptions() {
@@ -79,13 +90,11 @@ public abstract class TestBase {
 
 	@Before
 	public void startCluster() throws Exception {
-		LOG.info("######################### start - cluster config : " + clusterConfig + " #########################");
 		cluster = ClusterProviderPool.getInstance(clusterConfig);
 	}
 
 	@After
 	public void stopCluster() throws Exception {
-		LOG.info("######################### stop - cluster config : " + clusterConfig + " #########################");
 		cluster.stopCluster();
 		ClusterProviderPool.removeInstance(clusterConfig);
 		FileSystem.closeAll();
@@ -109,6 +118,7 @@ public abstract class TestBase {
 		
 		try {
 			final JobClient client = cluster.getJobClient(jobGraph, getJarFilePath());
+			client.setConsoleStreamForReporting(TestBase2.getNullPrintStream());
 			client.submitJobAndWait();
 		} catch(Exception e) {
 			LOG.error(e);

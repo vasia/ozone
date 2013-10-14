@@ -41,73 +41,27 @@ fi
 constructJobManagerClassPath() {
 
 	for jarfile in $NEPHELE_LIB_DIR/*.jar ; do
-
-		add=0
-
-		if [[ "$jarfile" =~ 'nephele-server' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-common' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-management' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-hdfs' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-s3' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-profiling' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-queuescheduler' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-clustermanager' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-common' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-array-datamodel' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-runtime' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-cli' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-logging' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-codec' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-configuration' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-lang' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'log4j' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'hadoop-core' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'aws-java-sdk' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'guava' ]]; then
-			add=1
-		fi
-
-		if [[ "$add" = "1" ]]; then
-			if [[ $NEPHELE_JM_CLASSPATH = "" ]]; then
-				NEPHELE_JM_CLASSPATH=$jarfile;
-			else
-				NEPHELE_JM_CLASSPATH=$NEPHELE_JM_CLASSPATH:$jarfile
-			fi
+		if [[ $NEPHELE_JM_CLASSPATH = "" ]]; then
+			NEPHELE_JM_CLASSPATH=$jarfile;
+		else
+			NEPHELE_JM_CLASSPATH=$NEPHELE_JM_CLASSPATH:$jarfile
 		fi
 	done
 
-	for jarfile in $NEPHELE_LIB_DIR/dropins/*.jar ; do
+	for jarfile in $NEPHELE_LIB_DIR/dropin/*.jar ; do
 		NEPHELE_JM_CLASSPATH=$NEPHELE_JM_CLASSPATH:$jarfile
 	done
+	NEPHELE_JM_CLASSPATH=$NEPHELE_JM_CLASSPATH:$NEPHELE_LIB_DIR/dropin/
 
 	echo $NEPHELE_JM_CLASSPATH
 }
 
-NEPHELE_JM_CLASSPATH=$(constructJobManagerClassPath)
+NEPHELE_JM_CLASSPATH=`manglePathList $(constructJobManagerClassPath)`
 
 log=$NEPHELE_LOG_DIR/nephele-$NEPHELE_IDENT_STRING-jobmanager-$HOSTNAME.log
 out=$NEPHELE_LOG_DIR/nephele-$NEPHELE_IDENT_STRING-jobmanager-$HOSTNAME.out
 pid=$NEPHELE_PID_DIR/nephele-$NEPHELE_IDENT_STRING-jobmanager.pid
-log_setting="-Dlog.file="$log" -Dlog4j.configuration=file://"$NEPHELE_CONF_DIR"/log4j.properties"
+log_setting="-Dlog.file="$log" -Dlog4j.configuration=file:"$NEPHELE_CONF_DIR"/log4j.properties"
 
 case $STARTSTOP in
 
@@ -125,7 +79,7 @@ case $STARTSTOP in
                 rotateLogFile $out
 
 		echo Starting Nephele job manager
-		$JAVA_HOME/bin/java $JVM_ARGS $NEPHELE_OPTS $log_setting -classpath $NEPHELE_JM_CLASSPATH eu.stratosphere.nephele.jobmanager.JobManager -executionMode $EXECUTIONMODE -configDir $NEPHELE_CONF_DIR  > "$out" 2>&1 < /dev/null &
+		$JAVA_RUN $JVM_ARGS $NEPHELE_OPTS $log_setting -classpath $NEPHELE_JM_CLASSPATH eu.stratosphere.nephele.jobmanager.JobManager -executionMode $EXECUTIONMODE -configDir $NEPHELE_CONF_DIR  > "$out" 2>&1 < /dev/null &
 		echo $! > $pid
 	;;
 

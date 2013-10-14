@@ -33,7 +33,10 @@ import eu.stratosphere.pact.example.sort.terasort.TeraOutputFormat;
  * input data is the Hadoop TeraGen program. For more details see <a
  * href="http://hadoop.apache.org/common/docs/current/api/org/apache/hadoop/examples/terasort/TeraGen.html">
  * http://hadoop.apache.org/common/docs/current/api/org/apache/hadoop/examples/terasort/TeraGen.html</a>.
- * 
+ *
+ * Note: this example job is currently not included in the build, because of problems with the RangePartioner (see
+ * https://github.com/stratosphere/stratosphere/issues/7). It should be included again after fixing the issue.
+ *
  * @author warneke
  */
 public final class TeraSort implements PlanAssembler, PlanAssemblerDescription {
@@ -60,12 +63,12 @@ public final class TeraSort implements PlanAssembler, PlanAssemblerDescription {
 
 		// This task will read the input data and generate the key/value pairs
 		final FileDataSource source = 
-				new FileDataSource(TeraInputFormat.class, input, "Data Source");
+				new FileDataSource(new TeraInputFormat(), input, "Data Source");
 		source.setDegreeOfParallelism(numSubTasks);
 
 		// This task writes the sorted data back to disk
 		final FileDataSink sink = 
-				new FileDataSink(TeraOutputFormat.class, output, "Data Sink");
+				new FileDataSink(new TeraOutputFormat(), output, "Data Sink");
 		sink.setDegreeOfParallelism(numSubTasks);
 		sink.setGlobalOrder(new Ordering(0, TeraKey.class, Order.ASCENDING), new TeraDistribution());
 

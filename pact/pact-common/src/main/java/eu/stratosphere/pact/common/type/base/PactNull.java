@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import eu.stratosphere.nephele.services.memorymanager.DataInputView;
 import eu.stratosphere.nephele.services.memorymanager.DataOutputView;
+import eu.stratosphere.nephele.services.memorymanager.MemorySegment;
 import eu.stratosphere.pact.common.type.CopyableValue;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.common.type.NormalizableKey;
@@ -32,8 +33,9 @@ import eu.stratosphere.pact.common.type.NormalizableKey;
  * 
  * @see eu.stratosphere.pact.common.type.Key
  */
-public final class PactNull implements Key, NormalizableKey, CopyableValue<PactNull>
-{	
+public final class PactNull implements Key, NormalizableKey, CopyableValue<PactNull> {
+	private static final long serialVersionUID = 1L;
+	
 	/**
 	 * The PactNull singleton instance.
 	 */
@@ -122,44 +124,29 @@ public final class PactNull implements Key, NormalizableKey, CopyableValue<PactN
 	
 	// --------------------------------------------------------------------------------------------
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.common.type.NormalizableKey#getNormalizedKeyLen()
-	 */
 	@Override
 	public int getMaxNormalizedKeyLen() {
 		return 0;
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.common.type.NormalizableKey#copyNormalizedKey(byte[], int, int)
-	 */
 	@Override
-	public void copyNormalizedKey(byte[] target, int offset, int len) {
+	public void copyNormalizedKey(MemorySegment target, int offset, int len) {
 		for (int i = offset; i < offset + len; i++) {
-			target[i] = 0;
+			target.put(i, (byte) 0);
 		}
 	}
 	
 	// --------------------------------------------------------------------------------------------
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.common.type.CopyableValue#getBinaryLength()
-	 */
 	@Override
 	public int getBinaryLength() {
 		return 1;
 	}
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.common.type.Copyable#copyTo(java.lang.Object)
-	 */
 	@Override
 	public void copyTo(PactNull target) {
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.common.type.CopyableValue#copy(eu.stratosphere.nephele.services.memorymanager.DataInputView, eu.stratosphere.nephele.services.memorymanager.DataOutputView)
-	 */
 	@Override
 	public void copy(DataInputView source, DataOutputView target) throws IOException {
 		source.readBoolean();

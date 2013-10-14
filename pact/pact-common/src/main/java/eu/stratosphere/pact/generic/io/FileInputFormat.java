@@ -69,6 +69,7 @@ import eu.stratosphere.pact.generic.io.InputFormat;
  * </ol>
  */
 public abstract class FileInputFormat<OT> implements InputFormat<OT, FileInputSplit> {
+	private static final long serialVersionUID = 1L;
 	
 	// -------------------------------------- Constants -------------------------------------------
 	
@@ -321,11 +322,14 @@ public abstract class FileInputFormat<OT> implements InputFormat<OT, FileInputSp
 		final FileSystem fs = path.getFileSystem();
 		final FileStatus pathFile = fs.getFileStatus(path);
 
+		if(!acceptFile(pathFile)) {
+			throw new IOException("The given file does not pass the file-filter");
+		}
 		if (pathFile.isDir()) {
 			// input is directory. list all contained files
 			final FileStatus[] dir = fs.listStatus(path);
 			for (int i = 0; i < dir.length; i++) {
-				if (!dir[i].isDir()) {
+				if (!dir[i].isDir() && acceptFile(dir[i])) {
 					files.add(dir[i]);
 					totalLength += dir[i].getLen();
 				}
@@ -410,6 +414,19 @@ public abstract class FileInputFormat<OT> implements InputFormat<OT, FileInputSp
 	}
 
 	/**
+	 * A simple hook to filter files and directories from the input.
+	 * The method may be overridden. Hadoop's FileInputFormat has a similar mechanism and applies the
+	 * same filters by default.
+	 * 
+	 * @param fileStatus
+	 * @return true, if the given file or directory is accepted
+	 */
+	public boolean acceptFile(FileStatus fileStatus) {
+		final String name = fileStatus.getPath().getName();
+		return !name.startsWith("_") && !name.startsWith(".");
+	}
+
+	/**
 	 * Retrieves the index of the <tt>BlockLocation</tt> that contains the part of the file described by the given
 	 * offset.
 	 * 
@@ -488,6 +505,7 @@ public abstract class FileInputFormat<OT> implements InputFormat<OT, FileInputSp
 		if (this.stream != null) {
 			// close input stream
 			this.stream.close();
+			stream = null;
 		}
 	}
 	

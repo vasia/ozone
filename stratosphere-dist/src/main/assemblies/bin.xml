@@ -22,12 +22,43 @@
 			<useTransitiveDependencies>true</useTransitiveDependencies>
 			<useProjectArtifact>false</useProjectArtifact>
 			<useProjectAttachments>false</useProjectAttachments>
-
+			<useTransitiveFiltering>true</useTransitiveFiltering>
+			
+			<excludes>
+				<!--
+				<exclude>**/*examples*.jar</exclude>
+				<exclude>**/*javadoc*</exclude>
+				<exclude>**/*sources*</exclude>
+				-->
+<!-- 				<exclude>eu.stratosphere:pact-clients:**</exclude> -->
+				<!--
+				  This is a hardcoded exclude-list containing all libraries that are exclusively used in pact-clients.
+          The previous command did not work because it also excludes libraries that should be in lib, such as commons-io.
+				-->
+        <exclude>commons-fileupload:commons-fileupload</exclude>
+        <exclude>org.eclipse.jetty:jetty-*</exclude>
+			</excludes>
+		</dependencySet>
+		
+		<dependencySet>
+			<outputDirectory>lib_clients</outputDirectory>
+			<unpack>false</unpack>
+			<useTransitiveDependencies>true</useTransitiveDependencies>
+			<useProjectArtifact>false</useProjectArtifact>
+			<useProjectAttachments>false</useProjectAttachments>
+			<useTransitiveFiltering>true</useTransitiveFiltering>
+			
+			<includes>
+				<include>eu.stratosphere:pact-clients:**</include>
+			</includes>
+			
+			<!--
 			<excludes>
 				<exclude>**/*examples*.jar</exclude>
 				<exclude>**/*javadoc*</exclude>
 				<exclude>**/*sources*</exclude>
 			</excludes>
+			-->
 		</dependencySet>
 	</dependencySets>
 

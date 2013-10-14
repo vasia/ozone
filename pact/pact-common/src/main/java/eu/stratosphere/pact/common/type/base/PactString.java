@@ -22,6 +22,7 @@ import java.nio.CharBuffer;
 
 import eu.stratosphere.nephele.services.memorymanager.DataInputView;
 import eu.stratosphere.nephele.services.memorymanager.DataOutputView;
+import eu.stratosphere.nephele.services.memorymanager.MemorySegment;
 import eu.stratosphere.pact.common.type.CopyableValue;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.common.type.NormalizableKey;
@@ -40,7 +41,8 @@ import eu.stratosphere.pact.common.type.NormalizableKey;
  * @see java.lang.String
  * @see java.lang.CharSequence
  */
-public class PactString implements Key, NormalizableKey, CharSequence, CopyableValue<PactString> {
+public class PactString implements Key, NormalizableKey, CharSequence, CopyableValue<PactString>, Appendable {
+	private static final long serialVersionUID = 1L;
 	
 	private static final char[] EMPTY_STRING = new char[0];
 	
@@ -74,7 +76,7 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 	 * 
 	 * @param value The string containing the value for this PactString.
 	 */
-	public PactString(String value) {
+	public PactString(CharSequence value) {
 		this.value = EMPTY_STRING;
 		setValue(value);
 	}
@@ -139,7 +141,7 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 	 * 
 	 * @param value The new string value.
 	 */
-	public void setValue(String value) {
+	public void setValue(CharSequence value) {
 		if (value == null)
 			throw new NullPointerException("Value must not be null");
 		
@@ -167,7 +169,7 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 		System.arraycopy(value.value, 0, this.value, 0, value.len);
 		this.hashCode = 0;
 	}
-	
+
 	/**
 	 * Sets the value of the PactString to a substring of the given string.
 	 * 
@@ -180,11 +182,33 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 			throw new NullPointerException();
 		
 		if (offset < 0 || len < 0 || offset > value.len - len)
-			throw new IndexOutOfBoundsException();
+			throw new IndexOutOfBoundsException("offset: " + offset + " len: " + len + " value.len: " + value.len);
 
 		ensureSize(len);
 		this.len = len;
 		System.arraycopy(value.value, offset, this.value, 0, len);
+		this.hashCode = 0;
+	}
+	
+	/**
+	 * Sets the value of the PactString to a substring of the given string.
+	 * 
+	 * @param value The new string value.
+	 * @param offset The position to start the substring.
+	 * @param len The length of the substring.
+	 */
+	public void setValue(CharSequence value, int offset, int len) {
+		if (value == null)
+			throw new NullPointerException();
+		
+		if (offset < 0 || len < 0 || offset > value.length() - len)
+			throw new IndexOutOfBoundsException();
+
+		ensureSize(len);
+		this.len = len;		
+		for (int i = 0; i < len; i++) 
+			this.value[i] = value.charAt(offset + i);
+		this.len = len;
 		this.hashCode = 0;
 	}
 	
@@ -401,7 +425,66 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 		return startsWith(prefix, 0);
 	}
 	
-	
+	// --------------------------------------------------------------------------------------------
+	// Appendable Methods
+	// --------------------------------------------------------------------------------------------
+
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Appendable#append(char)
+	 */
+	@Override
+	public Appendable append(char c) {
+		grow(this.len + 1);
+		this.value[this.len++] = c;
+		return this;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Appendable#append(java.lang.CharSequence)
+	 */
+	@Override
+	public Appendable append(CharSequence csq) {
+		append(csq, 0, csq.length());
+		return this;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Appendable#append(java.lang.CharSequence, int, int)
+	 */
+	@Override
+	public Appendable append(CharSequence csq, int start, int end) {
+		final int otherLen = end - start;
+		grow(this.len + otherLen);
+		for (int pos = start; pos < end; pos++)
+			this.value[this.len + pos] = csq.charAt(pos);
+		this.len += otherLen;
+		return this;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Appendable#append(java.lang.CharSequence)
+	 */
+	public Appendable append(PactString csq) {
+		append(csq, 0, csq.length());
+		return this;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Appendable#append(java.lang.CharSequence, int, int)
+	 */
+	public Appendable append(PactString csq, int start, int end) {
+		final int otherLen = end - start;
+		grow(this.len + otherLen);
+		System.arraycopy(csq.value, start, this.value, this.len, otherLen);
+		this.len += otherLen;
+		return this;
+	}
+		
 	// --------------------------------------------------------------------------------------------
 	//                            Serialization / De-Serialization
 	// --------------------------------------------------------------------------------------------
@@ -570,8 +653,8 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 	}
 
 	@Override
-	public void copyNormalizedKey(byte[] target, int offset, int len)
-	{
+	public void copyNormalizedKey(MemorySegment target, int offset, int len) {
+		// cache variables on stack, avoid repeated dereferencing of "this"
 		final char[] chars = this.value;
 		final int limit = offset + len;
 		final int end = this.len;
@@ -580,23 +663,23 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 		while (pos < end && offset < limit) {
 			char c = chars[pos++];
 			if (c < HIGH_BIT) {
-				target[offset++] = (byte) c;
+				target.put(offset++, (byte) c);
 			}
 			else if (c < HIGH_BIT2) {
-				target[offset++] = (byte) ((c >>> 7) | HIGH_BIT);
+				target.put(offset++, (byte) ((c >>> 7) | HIGH_BIT));
 				if (offset < limit)
-					target[offset++] = (byte) c;
+					target.put(offset++, (byte) c);
 			}
 			else {
-				target[offset++] = (byte) ((c >>> 10) | HIGH_BIT2_MASK);
+				target.put(offset++, (byte) ((c >>> 10) | HIGH_BIT2_MASK));
 				if (offset < limit)
-					target[offset++] = (byte) (c >>> 2);
+					target.put(offset++, (byte) (c >>> 2));
 				if (offset < limit)
-					target[offset++] = (byte) c;
+					target.put(offset++, (byte) c);
 			}
 		}
 		while (offset < limit) {
-			target[offset++] = 0;
+			target.put(offset++, (byte) 0);
 		}
 	}
 	
@@ -651,6 +734,17 @@ public class PactString implements Key, NormalizableKey, CharSequence, CopyableV
 	private final void ensureSize(int size) {
 		if (this.value.length < size) {
 			this.value = new char[size];
+		}
+	}
+	
+	/**
+	 * Grow and retain content.
+	 */
+	private final void grow(int size) {
+		if (this.value.length < size) {
+			char[] value = new char[ Math.max(this.value.length * 3 / 2, size)];
+			System.arraycopy(this.value, 0, value, 0, this.len);
+			this.value = value;
 		}
 	}
 }

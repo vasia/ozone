@@ -17,6 +17,7 @@ package eu.stratosphere.pact.common.type.base;
 
 import eu.stratosphere.nephele.services.memorymanager.DataInputView;
 import eu.stratosphere.nephele.services.memorymanager.DataOutputView;
+import eu.stratosphere.nephele.services.memorymanager.MemorySegment;
 import eu.stratosphere.pact.common.type.CopyableValue;
 import eu.stratosphere.pact.common.type.Key;
 import eu.stratosphere.pact.common.type.NormalizableKey;
@@ -26,6 +27,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 public class PactBoolean implements NormalizableKey, CopyableValue<PactBoolean> {
+	private static final long serialVersionUID = 1L;
 
 	private boolean value;
 
@@ -115,12 +117,12 @@ public class PactBoolean implements NormalizableKey, CopyableValue<PactBoolean> 
 	}
 
 	@Override
-	public void copyNormalizedKey(byte[] target, int offset, int len) {
+	public void copyNormalizedKey(MemorySegment target, int offset, int len) {
 		if (len > 0) {
-			target[offset] = (byte) (this.value ? 1 : 0);
+			target.put(offset, (byte) (this.value ? 1 : 0));
 			
-			for (offset++; len > 1; len--) {
-				target[offset++] = 0;
+			for (offset = offset + 1; len > 1; len--) {
+				target.put(offset++, (byte) 0);
 			}
 		}
 	}

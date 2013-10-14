@@ -7,7 +7,8 @@
 	<parent>
 		<groupId>eu.stratosphere</groupId>
 		<artifactId>ozone</artifactId>
-		<version>0.2</version>
+		<version>0.4-ozone-SNAPSHOT</version>
+		<relativePath>..</relativePath>
 	</parent>
 
 	<artifactId>nephele</artifactId>
@@ -36,45 +37,6 @@
 		</developer>
 	</developers>
 
-	<reporting>
-		<plugins>
-		</plugins>
-	</reporting>
-
-	<build>
-		<plugins>
-
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-source-plugin</artifactId>
-				<version>2.1.1</version>
-				<executions>
-					<execution>
-						<id>source:aggregate</id>
-						<phase>package</phase>
-						<goals>
-							<goal>aggregate</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<includes>
-						<include>eu/stratosphere/nephele/*</include>
-					</includes>
-				</configuration>
-			</plugin>
-
-		</plugins>
-	</build>
-
-	<dependencyManagement>
-		<dependencies>
-		</dependencies>
-	</dependencyManagement>
-
-	<dependencies>
-	</dependencies>
-
 	<modules>
 		<module>nephele-common</module>
 		<module>nephele-management</module>
@@ -87,4 +49,17 @@
 		<module>nephele-server</module>
 		<module>nephele-examples</module>
 	</modules>
+
+	<reporting>
+		<plugins>
+		</plugins>
+	</reporting>
+
+	<dependencyManagement>
+		<dependencies>
+		</dependencies>
+	</dependencyManagement>
+
+	<dependencies>
+	</dependencies>
 </project>

@@ -474,15 +474,19 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 	 * @throws RuntimeException Thrown, if the stub class could not be loaded, instantiated,
 	 *                          or caused an exception while being configured.
 	 */
+	
+//	public static <T> T instantiateUserCode(TaskConfig config, ClassLoader cl, Class<? super T> superClass) {
+//		try {
+//			T stub = (T) ((UserCodeWrapper<T>) config.getStubWrapper()).getUserCodeObject(superClass, cl);
 	protected S initStub(Class<? super S> stubSuperClass) throws Exception {
-		// obtain stub implementation class
 		try {
-			@SuppressWarnings("unchecked")
-			Class<S> stubClass = (Class<S>) this.config.getStubClass(stubSuperClass, this.userCodeClassLoader);
-			return InstantiationUtil.instantiate(stubClass, stubSuperClass);
-		}
-		catch (ClassNotFoundException cnfe) {
-			throw new Exception("The stub implementation class was not found.", cnfe);
+			S stub = config.<S>getStubWrapper(this.userCodeClassLoader).getUserCodeObject(stubSuperClass, this.userCodeClassLoader);
+			// check if the class is a subclass, if the check is required
+			if (stubSuperClass != null && !stubSuperClass.isAssignableFrom(stub.getClass())) {
+				throw new RuntimeException("The class '" + stub.getClass().getName() + "' is not a subclass of '" + 
+						stubSuperClass.getName() + "' as is required.");
+			}
+			return stub;
 		}
 		catch (ClassCastException ccex) {
 			throw new Exception("The stub class is not a proper subclass of " + stubSuperClass.getName(), ccex);
@@ -724,6 +728,7 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 					// if the class is null, the driver has no user code 
 					if (userCodeFunctionType != null && GenericReducer.class.isAssignableFrom(userCodeFunctionType)) {
 						localStub = initStub(userCodeFunctionType);
+						localStub.open(this.config.getStubParameters());
 					} else {
 						throw new IllegalStateException("Performing combining sort outside a reduce task!");
 					}
@@ -1207,7 +1212,7 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 		try {
 			stub.open(parameters);
 		} catch (Throwable t) {
-			throw new Exception("The user defined 'open(Configuration)' method caused an exception: " + t.getMessage(), t);
+			throw new Exception("The user defined 'open(Configuration)' method in " + stub.getClass().toString() + " caused an exception: " + t.getMessage(), t);
 		}
 	}
 	
@@ -1299,17 +1304,17 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 	 * @return An instance of the user code class.
 	 */
 	public static <T> T instantiateUserCode(TaskConfig config, ClassLoader cl, Class<? super T> superClass) {
-		// obtain stub implementation class
 		try {
-			@SuppressWarnings("unchecked")
-			final Class<T> clazz = (Class<T>) config.getStubClass(superClass, cl);
-			return InstantiationUtil.instantiate(clazz, superClass);
-		}
-		catch (ClassNotFoundException cnfe) {
-			throw new RuntimeException("User Code class was not found in the task configuration.", cnfe);
+			T stub = config.<T>getStubWrapper(cl).getUserCodeObject(superClass, cl);
+			// check if the class is a subclass, if the check is required
+			if (superClass != null && !superClass.isAssignableFrom(stub.getClass())) {
+				throw new RuntimeException("The class '" + stub.getClass().getName() + "' is not a subclass of '" + 
+						superClass.getName() + "' as is required.");
+			}
+			return stub;
 		}
 		catch (ClassCastException ccex) {
-			throw new RuntimeException("User Code class is not a proper subclass of " + superClass.getName(), ccex); 
+			throw new RuntimeException("The stub class is not a proper subclass of " + superClass.getName(), ccex);
 		}
 	}
 }

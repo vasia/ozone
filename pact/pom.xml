@@ -7,7 +7,8 @@
 	<parent>
 		<groupId>eu.stratosphere</groupId>
 		<artifactId>ozone</artifactId>
-		<version>0.2</version>
+		<version>0.4-ozone-SNAPSHOT</version>
+		<relativePath>..</relativePath>
 	</parent>
 
 	<artifactId>pact</artifactId>
@@ -26,6 +27,17 @@
 	<developers>
 	</developers>
 
+	<modules>
+		<module>pact-common</module>
+		<module>pact-runtime</module>
+		<module>pact-compiler</module>
+		<module>pact-compiler-tests</module>
+		<module>pact-clients</module>
+		<module>pact-examples</module>
+		<module>pact-tests</module>
+		<module>pact-array-datamodel</module>
+	</modules>
+
 	<properties>
 	</properties>
 
@@ -39,39 +51,34 @@
 	<dependencies>
 	</dependencies>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-source-plugin</artifactId>
-				<version>2.1.1</version>
-				<executions>
-					<execution>
-						<id>source:aggregate</id>
-						<phase>package</phase>
-						<goals>
-							<goal>aggregate</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<includes>
-						<include>eu/stratosphere/pact/*</include>
-					</includes>
-				</configuration>
-			</plugin>
 
-		</plugins>
-	</build>
+	
+	<!-- See main pom.xml for explanation of profiles -->
+	<profiles>
+		<profile>
+			<id>hadoop-1</id>
+			<activation>
+				<property>
+					<!-- Please do not remove the 'hadoop1' comment. See ./tools/generate_specific_pom.sh -->
+					<!--hadoop1--><name>!hadoop.profile</name>
+				</property>
+			</activation>
+			<modules>
+				<!-- No extra modules: pact-hbase is currently not compatible with Hadoop v1 -->
+			</modules>
+		</profile>
+		<profile>
+			<id>hadoop-2</id>
+			<activation>
+				<property>
+					<!-- Please do not remove the 'hadoop1' comment. See ./tools/generate_specific_pom.sh -->
+					<!--hadoop2--><name>hadoop.profile</name><value>2</value>
+				</property>
+			</activation>
+			<modules>
+				<module>pact-hbase</module>
+			</modules>
+		</profile>
+	</profiles>
 
-	<modules>
-		<module>pact-common</module>
-		<module>pact-runtime</module>
-		<module>pact-compiler</module>
-		<module>pact-compiler-tests</module>
-		<module>pact-clients</module>
-		<module>pact-examples</module>
-		<module>pact-tests</module>
-		<module>pact-array-datamodel</module>
-	</modules>
 </project>

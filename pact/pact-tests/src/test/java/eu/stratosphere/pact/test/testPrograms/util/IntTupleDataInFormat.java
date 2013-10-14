@@ -20,13 +20,14 @@ import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactInteger;
 
 public class IntTupleDataInFormat extends DelimitedInputFormat {
+	private static final long serialVersionUID = 1L;
 
 	public static final int MAX_COLUMNS = 20;
 
 	public static final int DELIMITER = '|';
 	
 	private final PactInteger key = new PactInteger();
-	private final short[] offsets = new short[MAX_COLUMNS];
+	private final int[] offsets = new int[MAX_COLUMNS];
 
 	@Override
 	public boolean readRecord(PactRecord target, byte[] line, int offset, int numBytes)
@@ -35,14 +36,14 @@ public class IntTupleDataInFormat extends DelimitedInputFormat {
 		int readPos = offset;
 
 		// allocate the offsets array
-		final short[] offsets = this.offsets;
-		offsets[0] = (short) offset;
+		final int[] offsets = this.offsets;
+		offsets[0] = offset;
 
 		int col = 1; // the column we are in
 
 		while (readPos < limit) {
 			if (line[readPos++] == DELIMITER) {
-				offsets[col++] = (short) (readPos);
+				offsets[col++] = readPos;
 			}
 		}
 

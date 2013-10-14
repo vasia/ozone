@@ -7,7 +7,8 @@
 	<parent>
 		<artifactId>pact</artifactId>
 		<groupId>eu.stratosphere</groupId>
-		<version>0.2</version>
+		<version>0.4-ozone-SNAPSHOT</version>
+		<relativePath>..</relativePath>
 	</parent>
 
 	<artifactId>pact-clients</artifactId>
@@ -27,13 +28,6 @@
 			<groupId>eu.stratosphere</groupId>
 			<artifactId>pact-compiler</artifactId>
 			<version>${project.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>eu.stratosphere</groupId>
-			<artifactId>pact-examples</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
 		</dependency>
 
 		<dependency>
