@@ -30,6 +30,11 @@
             <version>${project.version}</version>
         </dependency>
 
+		<dependency>
+			<groupId>eu.stratosphere</groupId>
+			<artifactId>pact-incremental</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 	</dependencies>
 
 	<reporting>
@@ -186,6 +191,211 @@
 							<includes>
 								<include>**/shortestpaths/PairwiseSP.class</include>
 								<include>**/shortestpaths/PairwiseSP$*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Bulk Connected Components -->
+					<execution>
+						<id>BulkCC</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>BulkCC</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.connectedcomponents.BulkConnectedComponents</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/connectedcomponents/BulkConnectedComponents.class</include>
+								<include>**/incremental/connectedcomponents/BulkConnectedComponents$*.class</include>
+								<include>**/incremental/connectedcomponents/CCOldValueComparisonMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/iterative/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Dependency Connected Components -->
+					<execution>
+						<id>DependencyCC</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DependencyCC</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.connectedcomponents.DependencyConnectedComponents</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/connectedcomponents/DependencyConnectedComponents.class</include>
+								<include>**/incremental/connectedcomponents/DependencyConnectedComponents$*.class</include>
+								<include>**/incremental/connectedcomponents/CCOldValueComparisonMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/iterative/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Incremental Connected Components -->
+					<execution>
+						<id>IncrementalCC</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>IncrementalCC</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.connectedcomponents.IncrementalConnectedComponents</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/connectedcomponents/IncrementalConnectedComponents.class</include>
+								<include>**/incremental/connectedcomponents/IncrementalConnectedComponents$*.class</include>
+								<include>**/incremental/connectedcomponents/CCDependencyOldValueComparisonMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCDependenciesComputationMatch.class</include>
+								<include>**/incremental/connectedcomponents/CCUpdateCmpIdReduce.class</include>
+								<include>**/iterative/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Bulk PageRank -->
+					<execution>
+						<id>BulkPageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>BulkPageRank</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.BulkPageRank</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Dependency PageRank -->
+					<execution>
+						<id>DependencyPageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DependencyPageRank</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.DependencyPageRank</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/DependencyPageRank$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Initialize Deltas -->
+					<execution>
+						<id>InitializeDeltas</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>InitializeDeltas</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.InitializeDeltas</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/InitializeDeltas$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Delta PageRank (with initialized deltas) -->
+					<execution>
+						<id>DeltaPageRankWithInitializedDeltas</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DeltaPageRankWithInitializedDeltas</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/DeltaPageRankWithInitializedDeltas$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- Delta PageRank -->
+					<execution>
+						<id>DeltaPageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DeltaPageRank</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRank</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+								<include>**/incremental/pagerank/DeltaPageRank$*.class</include>
+								<include>**/incremental/plans/*.class</include>
+								<include>**/incremental/*.class</include>
 							</includes>
 						</configuration>
 					</execution>

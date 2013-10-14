@@ -39,10 +39,84 @@ JVM_ARGS="$JVM_ARGS -Xmx512m"
 constructPactWebFrontendClassPath() {
 
 	for jarfile in $NEPHELE_LIB_DIR/*.jar ; do
+<<<<<<< HEAD
 		if [[ $PACT_WF_CLASSPATH = "" ]]; then
 			PACT_WF_CLASSPATH=$jarfile;
 		else
 			PACT_WF_CLASSPATH=$PACT_WF_CLASSPATH:$jarfile
+=======
+
+		add=0
+
+		if [[ "$jarfile" =~ 'nephele-server' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'nephele-common' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'nephele-management' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'nephele-hdfs' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'nephele-s3' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'pact-clients' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'pact-common' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'pact-array-datamodel' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'pact-runtime' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'pact-compiler' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'pact-incremental' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-cli' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-logging' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-codec' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-configuration' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-lang' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'log4j' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'hadoop-core' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'aws-java-sdk' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'guava' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-fileupload' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'commons-io' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-continuation' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-http' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-io' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-security' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-server' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-servlet' ]]; then
+			add=1
+		elif [[ "$jarfile" =~ 'jetty-util' ]]; then
+			add=1			
+		elif [[ "$jarfile" =~ 'servlet-api' ]]; then
+			add=1
+		fi
+
+		if [[ "$add" = "1" ]]; then
+			if [[ $PACT_WF_CLASSPATH = "" ]]; then
+				PACT_WF_CLASSPATH=$jarfile;
+			else
+				PACT_WF_CLASSPATH=$PACT_WF_CLASSPATH:$jarfile
+			fi
+>>>>>>> incremental_iterations
 		fi
 	done
 
