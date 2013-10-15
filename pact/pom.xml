@@ -36,6 +36,7 @@
 		<module>pact-examples</module>
 		<module>pact-tests</module>
 		<module>pact-array-datamodel</module>
+		<module>pact-incremental</module>
 	</modules>
 
 	<properties>
@@ -80,19 +81,4 @@
 			</modules>
 		</profile>
 	</profiles>
-
-<<<<<<< HEAD
-=======
-	<modules>
-		<module>pact-common</module>
-		<module>pact-runtime</module>
-		<module>pact-compiler</module>
-		<module>pact-compiler-tests</module>
-		<module>pact-clients</module>
-		<module>pact-examples</module>
-		<module>pact-tests</module>
-		<module>pact-array-datamodel</module>
-		<module>pact-incremental</module>
-	</modules>
->>>>>>> incremental_iterations
 </project>

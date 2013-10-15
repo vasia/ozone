@@ -1465,14 +1465,8 @@ public class HashTableITCase
 	}
 	
 	// ============================================================================================
-	
-<<<<<<< HEAD
-	private static final class PactRecordPairComparatorFirstInt extends TypePairComparator<PactRecord, PactRecord> {
-
-=======
 	public static final class PactRecordPairComparatorFirstInt extends TypePairComparator<PactRecord, PactRecord>
 	{
->>>>>>> 526a8697ce910d1f19bb0ba46ac0b69e6bb66209
 		private int key;
 
 		@Override

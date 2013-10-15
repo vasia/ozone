@@ -32,9 +32,6 @@
 			<artifactId>pact-array-datamodel</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-<<<<<<< HEAD
-=======
-
 		<dependency>
 			<groupId>eu.stratosphere</groupId>
 			<artifactId>pact-incremental</artifactId>
@@ -45,8 +42,6 @@
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-core</artifactId>
 		</dependency>
-
->>>>>>> incremental_iterations
 	</dependencies>
 
 	<!-- See main pom.xml for explanation of profiles -->
