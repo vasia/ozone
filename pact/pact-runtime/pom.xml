@@ -35,7 +35,7 @@
 		<dependency>
 			<groupId>eu.stratosphere</groupId>
 			<artifactId>pact-incremental</artifactId>
-			<version>0.2</version>
+			<version>${project.version}</version>
 		</dependency>
 		
 		<dependency>
