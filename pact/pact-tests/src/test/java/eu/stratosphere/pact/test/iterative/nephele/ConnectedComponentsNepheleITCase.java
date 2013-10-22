@@ -310,6 +310,7 @@ public class ConnectedComponentsNepheleITCase extends TestBase2 {
 			tailConfig.setDriverStrategy(DriverStrategy.HYBRIDHASH_BUILD_SECOND);
 			tailConfig.setStubWrapper(new UserCodeClassWrapper<UpdateComponentIdMatch>(UpdateComponentIdMatch.class));
 			tailConfig.setSolutionSetSerializer(serializer);
+			tailConfig.setIterationSolutionSetJoinNum(0);	//AVK: if not set, this fails after the multiple joins with solution set changes
 		}
 		
 		// --------------- the output ---------------------
