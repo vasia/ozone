@@ -37,7 +37,7 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 			
 			newRank.setValue(deltaVal.getValue() + currentVal.getValue());
 			vertexWithOldRank.setField(1, newRank);
-			vertexWithOldRank.setField(2, deltaVal);
+			//vertexWithOldRank.setField(2, deltaVal);
 			
 			out.collect(vertexWithOldRank);
 		}
@@ -50,6 +50,15 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 		public void map(PactRecord rec, Collector<PactRecord> out) throws Exception {
 			rec.setField(1, rec.getField(2, PactDouble.class));
 			rec.setNumFields(2);
+			out.collect(rec);
+		}
+	}
+	
+	@ConstantFields({0, 1})
+	public static final class DeltasIdentityMapper extends MapStub {
+		
+		@Override
+		public void map(PactRecord rec, Collector<PactRecord> out) throws Exception {
 			out.collect(rec);
 		}
 	}

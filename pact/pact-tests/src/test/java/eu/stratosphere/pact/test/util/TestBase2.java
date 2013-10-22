@@ -77,7 +77,7 @@ public abstract class TestBase2 {
 		PatternLayout layout = new PatternLayout("%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n");
 		ConsoleAppender appender = new ConsoleAppender(layout, "System.err");
 		root.addAppender(appender);
-		root.setLevel(Level.WARN);
+		root.setLevel(Level.INFO);
 	}
 	
 
