@@ -21,19 +21,21 @@ import eu.stratosphere.pact.runtime.task.DriverStrategy;
 /**
  * 
  */
-public class CrossBlockOuterSecondDescriptor extends CartesianProductDescriptor
-{
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.operators.AbstractOperatorDescriptor#getStrategy()
-	 */
+public class CrossBlockOuterSecondDescriptor extends CartesianProductDescriptor {
+	
+	public CrossBlockOuterSecondDescriptor() {
+		this(true, true);
+	}
+	
+	public CrossBlockOuterSecondDescriptor(boolean allowBroadcastFirst, boolean allowBroadcastSecond) {
+		super(allowBroadcastFirst, allowBroadcastSecond);
+	}
+	
 	@Override
 	public DriverStrategy getStrategy() {
 		return DriverStrategy.NESTEDLOOP_BLOCKED_OUTER_SECOND;
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.operators.OperatorDescriptorDual#computeLocalProperties(eu.stratosphere.pact.compiler.dataproperties.LocalProperties, eu.stratosphere.pact.compiler.dataproperties.LocalProperties)
-	 */
 	@Override
 	public LocalProperties computeLocalProperties(LocalProperties in1, LocalProperties in2) {
 		return new LocalProperties();

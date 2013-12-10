@@ -24,67 +24,37 @@ import eu.stratosphere.pact.generic.stub.AbstractStub;
  * 
  * @param <T> The data type.
  */
-public class NoOpDriver<T> implements PactDriver<AbstractStub, T>// extends AbstractPactTask<GenericMapper<IT, OT>, OT>
-{
+public class NoOpDriver<T> implements PactDriver<AbstractStub, T> {
+	
 	private PactTaskContext<AbstractStub, T> taskContext;
 	
 	private volatile boolean running;
 	
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.runtime.task.PactDriver#setup(eu.stratosphere.pact.runtime.task.PactTaskContext)
-	 */
 	@Override
 	public void setup(PactTaskContext<AbstractStub, T> context) {
 		this.taskContext = context;
 		this.running = true;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see eu.stratosphere.pact.runtime.task.AbstractPactTask#getNumberOfInputs()
-	 */
 	@Override
 	public int getNumberOfInputs() {
 		return 1;
 	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see eu.stratosphere.pact.runtime.task.AbstractPactTask#getStubType()
-	 */
+	
 	@Override
 	public Class<AbstractStub> getStubType() {
 		return null;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see eu.stratosphere.pact.runtime.task.AbstractPactTask#requiresComparatorOnInput()
-	 */
 	@Override
 	public boolean requiresComparatorOnInput() {
 		return false;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see eu.stratosphere.pact.runtime.task.AbstractPactTask#prepare()
-	 */
 	@Override
-	public void prepare() throws Exception {
-		// nothing, since a mapper does not need any preparation
-	}
+	public void prepare() {}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see eu.stratosphere.pact.runtime.task.AbstractPactTask#run()
-	 */
 	@Override
 	public void run() throws Exception {
 		// cache references on the stack
@@ -96,20 +66,10 @@ public class NoOpDriver<T> implements PactDriver<AbstractStub, T>// extends Abst
 			output.collect(record);
 		}
 	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see eu.stratosphere.pact.runtime.task.AbstractPactTask#cleanup()
-	 */
+	
 	@Override
-	public void cleanup() throws Exception {
-		// no cleanup, since no strategy is used.
-	}
+	public void cleanup() {}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.runtime.task.PactDriver#cancel()
-	 */
 	@Override
 	public void cancel() {
 		this.running = false;

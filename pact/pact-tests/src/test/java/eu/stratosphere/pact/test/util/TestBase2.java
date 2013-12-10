@@ -23,6 +23,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,10 +32,7 @@ import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -47,6 +46,7 @@ import eu.stratosphere.nephele.configuration.Configuration;
 import eu.stratosphere.nephele.jobgraph.JobGraph;
 import eu.stratosphere.pact.client.minicluster.NepheleMiniCluster;
 import eu.stratosphere.pact.common.plan.Plan;
+import eu.stratosphere.pact.common.util.LogUtils;
 import eu.stratosphere.pact.compiler.DataStatistics;
 import eu.stratosphere.pact.compiler.PactCompiler;
 import eu.stratosphere.pact.compiler.plan.candidate.OptimizedPlan;
@@ -72,12 +72,7 @@ public abstract class TestBase2 {
 		this.config = config;
 		this.tempFiles = new ArrayList<File>();
 		
-		Logger root = Logger.getRootLogger();
-		root.removeAllAppenders();
-		PatternLayout layout = new PatternLayout("%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n");
-		ConsoleAppender appender = new ConsoleAppender(layout, "System.err");
-		root.addAppender(appender);
-		root.setLevel(Level.INFO);
+		LogUtils.initializeDefaultConsoleLogger(Level.INFO);
 	}
 	
 
@@ -118,7 +113,7 @@ public abstract class TestBase2 {
 			e.printStackTrace();
 			Assert.fail("Pre-submit work caused an error: " + e.getMessage());
 		}
-
+		
 		// submit job
 		JobGraph jobGraph = null;
 		try {
@@ -135,6 +130,7 @@ public abstract class TestBase2 {
 			JobClient client = this.executer.getJobClient(jobGraph);
 			client.setConsoleStreamForReporting(getNullPrintStream());
 			client.submitJobAndWait();
+			
 		} catch(Exception e) {
 			System.err.println(e.getMessage());
 			e.printStackTrace();
@@ -153,18 +149,18 @@ public abstract class TestBase2 {
 	
 	public String getTempDirPath(String dirName) throws IOException {
 		File f = createAndRegisterTempFile(dirName);
-		return "file://" + f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	public String getTempFilePath(String fileName) throws IOException {
 		File f = createAndRegisterTempFile(fileName);
-		return "file://" + f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	public String createTempFile(String fileName, String contents) throws IOException {
 		File f = createAndRegisterTempFile(fileName);
 		Files.write(contents, f, Charsets.UTF_8);
-		return "file://" + f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	private File createAndRegisterTempFile(String fileName) throws IOException {
@@ -210,6 +206,29 @@ public abstract class TestBase2 {
 		return inStreams;
 	}
 	
+	public void readAllResultLines(List<String> target, String resultPath) throws IOException {
+		for (BufferedReader reader : getResultReader(resultPath)) {
+			String s = null;
+			while ((s = reader.readLine()) != null) {
+				target.add(s);
+			}
+		}
+	}
+	
+	public void compareResultsByLinesInMemory(String expectedResultStr, String resultPath) throws Exception {
+		ArrayList<String> list = new ArrayList<String>();
+		readAllResultLines(list, resultPath);
+		
+		String[] result = (String[]) list.toArray(new String[list.size()]);
+		Arrays.sort(result);
+		
+		String[] expected = expectedResultStr.split("\n");
+		Arrays.sort(expected);
+		
+		Assert.assertEquals("Different number of lines in expected and obtained result.", expected.length, result.length);
+		Assert.assertArrayEquals(expected, result);
+	}
+	
 	private File[] getAllInvolvedFiles(String resultPath) {
 		File result = asFile(resultPath);
 		if (!result.exists()) {
@@ -223,10 +242,15 @@ public abstract class TestBase2 {
 	}
 	
 	public File asFile(String path) {
-		if (path.startsWith("file://")) {
-			return new File(path.substring(7));
-		} else {
-			throw new IllegalArgumentException("This path does not denote a local file.");
+		try {
+			URI uri = new URI(path);
+			if (uri.getScheme().equals("file")) {
+				return new File(uri.getPath());
+			} else {
+				throw new IllegalArgumentException("This path does not denote a local file.");
+			}
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("This path does not describe a valid local file URI.");
 		}
 	}
 	
@@ -268,144 +292,6 @@ public abstract class TestBase2 {
 	
 	protected void postSubmit() throws Exception {}
 	
-	// --------------------------------------------------------------------------------------------
-	//  Methods to assess the correctness of the computed result
-	// --------------------------------------------------------------------------------------------
-	
-//	/**
-//	 * Compares the expectedResultString and the file(s) in the HDFS linewise.
-//	 * Both results (expected and computed) are held in memory. Hence, this
-//	 * method should not be used to compare large results.
-//	 * 
-//	 * @param expectedResult
-//	 * @param hdfsPath
-//	 */
-//	protected void compareResultsByLinesInMemory(String expectedResultStr, String resultPath) throws Exception {
-//
-//		Comparator<String> defaultStrComp = new Comparator<String>() {
-//			@Override
-//			public int compare(String arg0, String arg1) {
-//				return arg0.compareTo(arg1);
-//			}
-//		};
-//		
-//		this.compareResultsByLinesInMemory(expectedResultStr, resultPath, defaultStrComp);
-//	}
-//	
-//	protected <T> void compareResultsByLinesInMemoryStrictOrder(List<T> result, String resultPath) throws Exception
-//	{
-//		final ArrayList<String> resultFiles = new ArrayList<String>();
-//
-//		// Determine all result files
-//		if (getFilesystemProvider().isDir(resultPath)) {
-//			final String[] files = getFilesystemProvider().listFiles(resultPath);
-//			final Comparator<String> fileNameComp = new Comparator<String>() {
-//				@Override
-//				public int compare(String o1, String o2) {
-//					if (o1.length() < o2.length())
-//						return -1;
-//					else if (o1.length() > o2.length())
-//						return 1;
-//					else return o1.compareTo(o2);
-//				}
-//			};
-//			Arrays.sort(files, fileNameComp);
-//			
-//			for (String file : files) {
-//				if (!getFilesystemProvider().isDir(file)) {
-//					resultFiles.add(resultPath+"/"+file);
-//				}
-//			}
-//		} else {
-//			resultFiles.add(resultPath);
-//		}
-//		
-//		final Iterator<T> expectedLines = result.iterator();
-//		
-//		for (String resultFile : resultFiles) {
-//			// read each result file
-//			final InputStream is = getFilesystemProvider().getInputStream(resultFile);
-//			final BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-//
-//			// collect lines
-//			String line = null;
-//			while ((line = reader.readLine()) != null) {
-//				Assert.assertTrue("More lines in result than expected lines.", expectedLines.hasNext());
-//				String nextExpected = expectedLines.next().toString();
-//				Assert.assertEquals("Expected result and obtained result do not match.", nextExpected, line);
-//			}
-//			reader.close();
-//		}
-//		
-//		Assert.assertFalse("More expected lines than obtained lines.", expectedLines.hasNext());
-//	}
-//	
-//	/**
-//	 * Compares the expectedResultString and the file(s) in the HDFS linewise.
-//	 * Both results (expected and computed) are held in memory. Hence, this
-//	 * method should not be used to compare large results.
-//	 * 
-//	 * The line comparator is used to compare lines from the expected and result set.
-//	 * 
-//	 * @param expectedResult
-//	 * @param hdfsPath
-//	 * @param comp Line comparator
-//	 */
-//	protected void compareResultsByLinesInMemory(String expectedResultStr, String resultPath, Comparator<String> comp) throws Exception {
-//
-//		ArrayList<String> resultFiles = new ArrayList<String>();
-//
-//		// Determine all result files
-//		if (getFilesystemProvider().isDir(resultPath)) {
-//			for (String file : getFilesystemProvider().listFiles(resultPath)) {
-//				if (!getFilesystemProvider().isDir(file)) {
-//					resultFiles.add(resultPath+"/"+file);
-//				}
-//			}
-//		} else {
-//			resultFiles.add(resultPath);
-//		}
-//
-//		// collect lines of all result files
-//		PriorityQueue<String> computedResult = new PriorityQueue<String>();
-//		for (String resultFile : resultFiles) {
-//			// read each result file
-//			InputStream is = getFilesystemProvider().getInputStream(resultFile);
-//			BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-//			String line = reader.readLine();
-//
-//			// collect lines
-//			while (line != null) {
-//				computedResult.add(line);
-//				line = reader.readLine();
-//			}
-//			reader.close();
-//		}
-//
-//		PriorityQueue<String> expectedResult = new PriorityQueue<String>();
-//		StringTokenizer st = new StringTokenizer(expectedResultStr, "\n");
-//		while (st.hasMoreElements()) {
-//			expectedResult.add(st.nextToken());
-//		}
-//
-//		// log expected and computed results
-//		if (LOG.isDebugEnabled()) {
-//			LOG.debug("Expected: " + expectedResult);
-//			LOG.debug("Computed: " + computedResult);
-//		}
-//
-//		Assert.assertEquals("Computed and expected results have different size", expectedResult.size(), computedResult.size());
-//
-//		while (!expectedResult.isEmpty()) {
-//			String expectedLine = expectedResult.poll();
-//			String computedLine = computedResult.poll();
-//			
-//			if (LOG.isDebugEnabled())
-//				LOG.debug("expLine: <" + expectedLine + ">\t\t: compLine: <" + computedLine + ">");
-//			
-//			Assert.assertEquals("Computed and expected lines differ", expectedLine, computedLine);
-//		}
-//	}
 	
 	// --------------------------------------------------------------------------------------------
 	//  Miscellaneous helper methods
@@ -426,29 +312,6 @@ public abstract class TestBase2 {
 		} else {
 			f.delete();
 		}
-	}
-	
-	public void readAllResultLines(List<String> target, String resultPath) throws IOException {
-		for (BufferedReader reader : getResultReader(resultPath)) {
-			String s = null;
-			while ((s = reader.readLine()) != null) {
-				target.add(s);
-			}
-		}
-	}
-	
-	public void compareResultsByLinesInMemory(String expectedResultStr, String resultPath) throws Exception {
-		ArrayList<String> list = new ArrayList<String>();
-		readAllResultLines(list, resultPath);
-		
-		String[] result = (String[]) list.toArray(new String[list.size()]);
-		Arrays.sort(result);
-		
-		String[] expected = expectedResultStr.split("\n");
-		Arrays.sort(expected);
-		
-		Assert.assertEquals("Different number of lines in expected and obtained result.", expected.length, result.length);
-		Assert.assertArrayEquals(expected, result);
 	}
 	
 	public static PrintStream getNullPrintStream() {

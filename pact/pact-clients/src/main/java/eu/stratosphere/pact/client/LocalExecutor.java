@@ -15,6 +15,10 @@
 
 package eu.stratosphere.pact.client;
 
+import java.util.List;
+
+import org.apache.log4j.*;
+
 import eu.stratosphere.nephele.client.JobClient;
 import eu.stratosphere.nephele.jobgraph.JobGraph;
 import eu.stratosphere.pact.client.minicluster.NepheleMiniCluster;
@@ -22,6 +26,7 @@ import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.compiler.DataStatistics;
 import eu.stratosphere.pact.compiler.PactCompiler;
+import eu.stratosphere.pact.compiler.plan.DataSinkNode;
 import eu.stratosphere.pact.compiler.plan.candidate.OptimizedPlan;
 import eu.stratosphere.pact.compiler.plandump.PlanJSONDumpGenerator;
 import eu.stratosphere.pact.compiler.plantranslate.NepheleJobGraphGenerator;
@@ -35,13 +40,21 @@ import eu.stratosphere.pact.compiler.plantranslate.NepheleJobGraphGenerator;
  * When the class is instantiated a local nephele instance is started, this can
  * be stopped by calling stopNephele.
  */
-public class LocalExecutor {
+public class LocalExecutor implements PlanExecutor {
 
 	private final Object lock = new Object();	// we lock to ensure singleton execution
 	
 	private NepheleMiniCluster nephele;
 
 	
+	public LocalExecutor() {
+		Logger root = Logger.getRootLogger();
+		PatternLayout layout = new PatternLayout("%d{HH:mm:ss,SSS} %-5p %-60c %x - %m%n");
+		ConsoleAppender appender = new ConsoleAppender(layout, "System.err");
+        appender.setThreshold(Level.ERROR);
+		root.addAppender(appender);
+		root.setLevel(Level.WARN);
+	}
 	
 	public void start() throws Exception {
 		synchronized (this.lock) {
@@ -49,7 +62,7 @@ public class LocalExecutor {
 			this.nephele.start();
 		}
 	}
-	
+
 	/**
 	 * Stop the local executor instance. You should not call executePlan after this.
 	 */
@@ -86,7 +99,7 @@ public class LocalExecutor {
 			return jobClient.submitJobAndWait();
 		}
 	}
-	
+
 	/**
 	 * Returns a JSON dump of the optimized plan.
 	 * 
@@ -106,7 +119,7 @@ public class LocalExecutor {
 
 		return gen.getOptimizerPlanAsJSON(op);
 	}
-	
+
 	/**
 	 * Executes the program described by the given plan assembler.
 	 * 
@@ -136,12 +149,10 @@ public class LocalExecutor {
 			exec.start();
 			return exec.executePlan(plan);
 		} finally {
-			if (exec != null) {
-				exec.stop();
-			}
+			exec.stop();
 		}
 	}
-	
+
 	/**
 	 * Returns a JSON dump of the optimized plan.
 	 * 
@@ -160,9 +171,17 @@ public class LocalExecutor {
 
 			return gen.getOptimizerPlanAsJSON(op);
 		} finally {
-			if (exec != null) {
-				exec.stop();
-			}
+			exec.stop();
 		}
+	}
+
+	/**
+	 * Return unoptimized plan as JSON.
+	 * @return
+	 */
+	public static String getPlanAsJSON(Plan plan) {
+		PlanJSONDumpGenerator gen = new PlanJSONDumpGenerator();
+		List<DataSinkNode> sinks = PactCompiler.createPreOptimizedPlan(plan);
+		return gen.getPactPlanAsJSON(sinks);
 	}
 }

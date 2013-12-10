@@ -19,14 +19,14 @@ import eu.stratosphere.pact.compiler.plan.candidate.OptimizedPlan
 import eu.stratosphere.pact.compiler.postpass.GenericPactRecordPostPass
 import java.util.Calendar
 import eu.stratosphere.pact.generic.contract.Contract
-import eu.stratosphere.scala.analysis.NewGlobalSchemaGenerator
+import eu.stratosphere.scala.analysis.GlobalSchemaGenerator
 import eu.stratosphere.scala.analysis.postPass.GlobalSchemaOptimizer
 import eu.stratosphere.pact.common.plan.PlanAssembler
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription
 
 class ScalaPlan(scalaSinks: Seq[ScalaSink[_]], scalaJobName: String = "PACT SCALA Job at " + Calendar.getInstance().getTime()) extends Plan(asJavaCollection(scalaSinks map { _.sink }), scalaJobName) {
   val pactSinks = scalaSinks map { _.sink.asInstanceOf[Contract with ScalaContract[_]] }
-  NewGlobalSchemaGenerator.initGlobalSchema(pactSinks)
+  new GlobalSchemaGenerator().initGlobalSchema(pactSinks)
   override def getPostPassClassName() = "eu.stratosphere.scala.ScalaPostPass";
 }
 
@@ -59,17 +59,15 @@ object Args {
   }
 }
 
-abstract class ScalaPlanAssembler extends PlanAssembler {
-  def getScalaPlan(args: Args): ScalaPlan
-  
-  override def getPlan(args: String*): Plan = {
-    val scalaArgs = Args.parse(args.toSeq)
-    
-    getScalaPlan(scalaArgs)
-  }
-}
-
-class Pact4sInstantiationException(cause: Throwable) extends Exception("Could not instantiate program.", cause)
+//abstract class ScalaPlanAssembler extends PlanAssembler {
+//  def getScalaPlan(args: Args): ScalaPlan
+//  
+//  override def getPlan(args: String*): Plan = {
+//    val scalaArgs = Args.parse(args.toSeq)
+//    
+//    getScalaPlan(scalaArgs)
+//  }
+//}
 
 
 class ScalaPostPass extends GenericPactRecordPostPass with GlobalSchemaOptimizer {

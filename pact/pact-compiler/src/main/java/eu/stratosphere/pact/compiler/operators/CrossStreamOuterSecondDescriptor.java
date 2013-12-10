@@ -21,19 +21,21 @@ import eu.stratosphere.pact.runtime.task.DriverStrategy;
 /**
  * 
  */
-public class CrossStreamOuterSecondDescriptor extends CartesianProductDescriptor
-{
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.operators.AbstractOperatorDescriptor#getStrategy()
-	 */
+public class CrossStreamOuterSecondDescriptor extends CartesianProductDescriptor {
+	
+	public CrossStreamOuterSecondDescriptor() {
+		this(true, true);
+	}
+	
+	public CrossStreamOuterSecondDescriptor(boolean allowBroadcastFirst, boolean allowBroadcastSecond) {
+		super(allowBroadcastFirst, allowBroadcastSecond);
+	}
+	
 	@Override
 	public DriverStrategy getStrategy() {
 		return DriverStrategy.NESTEDLOOP_STREAMED_OUTER_SECOND;
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.operators.OperatorDescriptorDual#computeLocalProperties(eu.stratosphere.pact.compiler.dataproperties.LocalProperties, eu.stratosphere.pact.compiler.dataproperties.LocalProperties)
-	 */
 	@Override
 	public LocalProperties computeLocalProperties(LocalProperties in1, LocalProperties in2) {
 		// uniqueness becomes grouping with streamed nested loops

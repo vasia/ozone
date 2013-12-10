@@ -1,8 +1,22 @@
-# Stratosphere - "Ozone" Distribution
+# Stratosphere
 
-Big Data looks tiny from Stratosphere.
+_"Big Data looks tiny from Stratosphere."_
 
-## Getting Started
+Stratosphere is a next-generation Big Data Analytics Platform. It combines the strenghts of MapReduce/Hadoop with powerful programming abstractions in Java and Scala, and a high performance runtime. Stratosphere has native support for iterations, incremental iterations, and programs consisting of workflows of many operations.
+
+Learn more about Stratosphere at http://stratosphere.eu
+
+## Start writing a Stratosphere Job
+If you just want to get started with Stratosphere, use the following command to set up an empty Stratosphere Job
+
+```
+curl https://raw.github.com/stratosphere/stratosphere-quickstart/master/quickstart.sh | bash
+```
+The quickstart sample contains everything to develop a Stratosphere Job on your computer and run it in a local embedded runtime. No setup needed.
+Further quickstart guides are at http://stratosphere.eu/quickstart/
+
+
+## Build Stratosphere
 Below are three short tutorials that guide you through the first steps: Building, running and developing.
 
 ###  Build From Source
@@ -12,19 +26,19 @@ This tutorial shows how to build Stratosphere on your own system. Please open a 
 #### Requirements
 * Unix-like environment (We use Linux, Mac OS X, Cygwin)
 * git
-* maven
+* Maven (at least version 3.0.4)
 * Java 6 or 7
 
 ```
 git clone https://github.com/stratosphere/stratosphere.git
-cd ozone
+cd stratosphere
 mvn -DskipTests clean package # this will take up to 5 minutes
 ```
 
 Stratosphere is now installed in `stratosphere-dist/target`
 If you’re a Debian/Ubuntu user, you’ll find a .deb package. We will continue with the generic case.
 
-	cd stratosphere-dist/target/stratosphere-dist-0.4-ozone-SNAPSHOT-bin/stratosphere-0.4-ozone-SNAPSHOT/
+	cd stratosphere-dist/target/stratosphere-dist-0.4-SNAPSHOT-bin/stratosphere-0.4-SNAPSHOT/
 
 The directory structure here looks like the contents of the official release distribution.
 
@@ -67,7 +81,7 @@ Get some test data:
 
 Start the job:
 
-	./bin/pact-client.sh run --jarfile ./examples/pact/pact-examples-0.4-ozone-SNAPSHOT-WordCount.jar --arguments 1 file://`pwd`/hamlet.txt file://`pwd`/wordcount-result.txt
+	./bin/pact-client.sh run --jarfile ./examples/pact/pact-examples-0.4-SNAPSHOT-WordCount.jar --arguments 1 file://`pwd`/hamlet.txt file://`pwd`/wordcount-result.txt
 
 You will find a file called `wordcount-result.txt` in your current directory.
 
@@ -80,7 +94,7 @@ You will find a file called `wordcount-result.txt` in your current directory.
 Get some test data:
 	 wget -O ~/hamlet.txt http://www.gutenberg.org/cache/epub/1787/pg1787.txt
 
-* Point your browser to to http://localhost:8080/launch.html. Upload the WordCount.jar using the upload form in the lower right box. The jar is located in `./examples/pact/pact-examples-0.2-ozone-WordCount.jar`.
+* Point your browser to to http://localhost:8080/launch.html. Upload the WordCount.jar using the upload form in the lower right box. The jar is located in `./examples/pact/pact-examples-0.4-WordCount.jar`.
 * Select the WordCount jar from the list of available jars (upper left).
 * Enter the argument line in the lower-left box: `1 file://<path to>/hamlet.txt file://<wherever you want the>/wordcount-result.txt`
 
@@ -92,12 +106,19 @@ Get some test data:
 To contribute back to the project or develop your own jobs for Stratosphere, you need a working development environment. We use Eclipse and IntelliJ for development. Here we focus on Eclipse.
 
 If you want to work on the scala code you will need the following plugins:
+
+Eclipse 4.x:
   * scala-ide: http://download.scala-ide.org/sdk/e38/scala210/stable/site
   * m2eclipse-scala: http://alchim31.free.fr/m2e-scala/update-site
   * build-helper-maven-plugin: https://repository.sonatype.org/content/repositories/forge-sites/m2e-extras/0.15.0/N/0.15.0.201206251206/
 
-When you don't have the plugins your project will have build errors, you can just close the scala projects and ignore them.
+Eclipse 3.7:
+  * scala-ide: http://download.scala-ide.org/sdk/e37/scala210/stable/site
+  * m2eclipse-scala: http://alchim31.free.fr/m2e-scala/update-site
+  * build-helper-maven-plugin: https://repository.sonatype.org/content/repositories/forge-sites/m2e-extras/0.14.0/N/0.14.0.201109282148/
 
+When you don't have the plugins your project will have build errors, you can just close the scala projects and ignore them.
+o
 Import the Stratosphere source code using Maven's Import tool:
   * Select "Import" from the "File"-menu.
   * Expand "Maven" node, select "Existing Maven Projects", and click "next" button
@@ -106,36 +127,24 @@ Import the Stratosphere source code using Maven's Import tool:
 
 Create a new Eclipse Project that requires Stratosphere in its Build Path!
 
-Use this skeleton as an entry point for your own Jobs: It allows you to hit the “Run as” -> “Java Application” feature of Eclipse. (You have to stop the application manually, because only one instance can run at a time)
+Use this skeleton as an entry point for your own Jobs: It allows you to hit the “Run as” -> “Java Application” feature of Eclipse:
 
 ```java
-public class Tutorial implements PlanAssembler, PlanAssemblerDescription {
+public class Tutorial implements PlanAssembler {
 
-	public static void execute(Plan toExecute) throws Exception {
-		LocalExecutor executor = new LocalExecutor();
-		executor.start();
-		long runtime = executor.executePlan(toExecute);
-		System.out.println("runtime:  " + runtime);
-		executor.stop();
-	}
+    @Override
+    public Plan getPlan(String... args) {
+        // your parallel program goes here
+    }
 
-	@Override
-	public Plan getPlan(String... args) {
-		// your Plan goes here
-	}
-
-	@Override
-	public String getDescription() {
-		return "Usage: …. "; // TODO
-	}
-
-	public static void main(String[] args) throws Exception {
-		Tutorial tut = new Tutorial();
-		Plan toExecute = tut.getPlan( /* Arguments */);
-		execute(toExecute);
-	}
+    public static void main(String[] args) throws Exception {
+        Tutorial tut = new Tutorial();
+        Plan toExecute = tut.getPlan(args);
+        long runtime = LocalExecutor.execute(toExecute);
+        System.out.println("Runime: " + runtime);
+        System.exit(0);
+    }
 }
-
 ```
 
 ## Support
@@ -159,6 +168,8 @@ Please make edits to the Wiki if you find inconsistencies or [Open an issue](htt
 This is an active open-source project. We are always open to people who want to use the system or contribute to it. 
 Contact us if you are looking for implementation tasks that fit your skills.
 
+We have a list of [starter jobs](https://github.com/stratosphere/stratosphere/wiki/Starter-Jobs) in our wiki.
+
 We use the GitHub Pull Request system for the development of Stratosphere. Just open a request if you want to contribute.
 
 ### What to contribute
@@ -173,13 +184,14 @@ Let us know if you have created a system that uses Stratosphere, so that we can 
 
 ## About
 
-[Stratosphere](www.stratosphere.eu) is a DFG-founded research project. Ozone is the codename of the latest Stratosphere distribution. 
+[Stratosphere](http://www.stratosphere.eu) is a DFG-founded research project. Ozone is the codename of the latest Stratosphere distribution. 
 We combine cutting edge research outcomes with a stable and usable codebase.
 Decisions are not made behind closed doors. We discuss all changes and plans on our Mailinglists and on GitHub.
 
 
+<!--- Commented out Travis until we get a reliable repont on build status
 Build Status: [![Build Status](https://travis-ci.org/stratosphere/stratosphere.png)](https://travis-ci.org/stratosphere/stratosphere)
-
+-->
 
 
 

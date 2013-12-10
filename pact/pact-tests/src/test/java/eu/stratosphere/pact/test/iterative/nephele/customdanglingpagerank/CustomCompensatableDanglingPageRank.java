@@ -16,6 +16,7 @@
 package eu.stratosphere.pact.test.iterative.nephele.customdanglingpagerank;
 
 import eu.stratosphere.nephele.configuration.Configuration;
+import eu.stratosphere.nephele.fs.Path;
 import eu.stratosphere.nephele.io.DistributionPattern;
 import eu.stratosphere.nephele.io.channels.ChannelType;
 import eu.stratosphere.nephele.jobgraph.JobGraph;
@@ -97,7 +98,7 @@ public class CustomCompensatableDanglingPageRank {
 		String pageWithRankInputPath = ""; //"file://" + PlayConstants.PLAY_DIR + "test-inputs/danglingpagerank/pageWithRank";
 		String adjacencyListInputPath = ""; //"file://" + PlayConstants.PLAY_DIR +
 //			"test-inputs/danglingpagerank/adjacencylists";
-		String outputPath = "file:///tmp/stratosphere/iterations";
+		String outputPath =  Path.constructTestURI("stratosphere_iterations");
 //		String confPath = PlayConstants.PLAY_DIR + "local-conf";
 		int minorConsumer = 25;
 		int matchMemory = 50;
@@ -227,6 +228,7 @@ public class CustomCompensatableDanglingPageRank {
 			degreeOfParallelism, numSubTasksPerInstance);
 		TaskConfig tailConfig = new TaskConfig(tail.getConfiguration());
 		tailConfig.setIterationId(ITERATION_ID);
+        tailConfig.setIsWorksetUpdate();
 		// TODO we need to combine!
 		
 		// inputs and driver

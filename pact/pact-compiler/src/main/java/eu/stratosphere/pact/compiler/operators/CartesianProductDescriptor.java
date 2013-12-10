@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import eu.stratosphere.pact.compiler.dataproperties.GlobalProperties;
+import eu.stratosphere.pact.compiler.dataproperties.LocalProperties;
 import eu.stratosphere.pact.compiler.dataproperties.PartitioningProperty;
 import eu.stratosphere.pact.compiler.dataproperties.RequestedGlobalProperties;
 import eu.stratosphere.pact.compiler.dataproperties.RequestedLocalProperties;
@@ -27,35 +28,45 @@ import eu.stratosphere.pact.compiler.plan.TwoInputNode;
 import eu.stratosphere.pact.compiler.plan.candidate.Channel;
 import eu.stratosphere.pact.compiler.plan.candidate.DualInputPlanNode;
 
-/**
- *
- */
-public abstract class CartesianProductDescriptor extends OperatorDescriptorDual
-{
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.dataproperties.DriverPropertiesDual#createPossibleGlobalProperties()
-	 */
+
+public abstract class CartesianProductDescriptor extends OperatorDescriptorDual {
+	
+	private final boolean allowBroadcastFirst;
+	private final boolean allowBroadcastSecond;
+	
+	
+	protected CartesianProductDescriptor(boolean allowBroadcastFirst, boolean allowBroadcastSecond) {
+		if (!(allowBroadcastFirst | allowBroadcastSecond))
+			throw new IllegalArgumentException();
+
+		this.allowBroadcastFirst = allowBroadcastFirst;
+		this.allowBroadcastSecond = allowBroadcastSecond;
+	}
+	
+	
 	@Override
 	protected List<GlobalPropertiesPair> createPossibleGlobalProperties() {
 		ArrayList<GlobalPropertiesPair> pairs = new ArrayList<GlobalPropertiesPair>();
-		{ // replicate second
-			RequestedGlobalProperties any1 = new RequestedGlobalProperties();
-			RequestedGlobalProperties replicated2 = new RequestedGlobalProperties();
-			replicated2.setFullyReplicated();
-			pairs.add(new GlobalPropertiesPair(any1, replicated2));
-		}
-		{ // replicate first
+		
+		if (this.allowBroadcastFirst) {
+			// replicate first
 			RequestedGlobalProperties replicated1 = new RequestedGlobalProperties();
 			replicated1.setFullyReplicated();
 			RequestedGlobalProperties any2 = new RequestedGlobalProperties();
 			pairs.add(new GlobalPropertiesPair(replicated1, any2));
 		}
+		
+		if (this.allowBroadcastSecond) {
+			// replicate second
+			RequestedGlobalProperties any1 = new RequestedGlobalProperties();
+			RequestedGlobalProperties replicated2 = new RequestedGlobalProperties();
+			replicated2.setFullyReplicated();
+			pairs.add(new GlobalPropertiesPair(any1, replicated2));
+		}
+
 		return pairs;
 	}
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.dataproperties.DriverPropertiesDual#createPossibleLocalProperties()
-	 */
 	@Override
 	protected List<LocalPropertiesPair> createPossibleLocalProperties() {
 		// all properties are possible
@@ -63,17 +74,17 @@ public abstract class CartesianProductDescriptor extends OperatorDescriptorDual
 			new RequestedLocalProperties(), new RequestedLocalProperties()));
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.dataproperties.DriverPropertiesDual#instantiate(eu.stratosphere.pact.compiler.plan.candidate.Channel, eu.stratosphere.pact.compiler.plan.candidate.Channel, eu.stratosphere.pact.compiler.plan.TwoInputNode)
-	 */
+	@Override
+	public boolean areCoFulfilled(RequestedLocalProperties requested1, RequestedLocalProperties requested2,
+			LocalProperties produced1, LocalProperties produced2) {
+		return true;
+	}
+	
 	@Override
 	public DualInputPlanNode instantiate(Channel in1, Channel in2, TwoInputNode node) {
 		return new DualInputPlanNode(node, in1, in2, getStrategy());
 	}
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.operators.OperatorDescriptorDual#computeGlobalProperties(eu.stratosphere.pact.compiler.dataproperties.GlobalProperties, eu.stratosphere.pact.compiler.dataproperties.GlobalProperties)
-	 */
 	@Override
 	public GlobalProperties computeGlobalProperties(GlobalProperties in1, GlobalProperties in2) {
 		GlobalProperties gp = GlobalProperties.combine(in1, in2);

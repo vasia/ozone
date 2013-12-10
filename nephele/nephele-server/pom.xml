@@ -8,7 +8,7 @@
 	<parent>
 		<artifactId>nephele</artifactId>
 		<groupId>eu.stratosphere</groupId>
-		<version>0.4-ozone-SNAPSHOT</version>
+		<version>0.4-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
@@ -29,6 +29,24 @@
 			<artifactId>commons-cli</artifactId>
 			<version>1.2</version>
 		</dependency>
+		
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-server</artifactId>
+			<version>8.0.0.M1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-security</artifactId>
+			<version>8.0.0.M1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-servlet</artifactId>
+			<version>8.0.0.M1</version>
+		</dependency>
 
 	</dependencies>
 
@@ -40,15 +58,8 @@
 				<configuration>
 					<!-- we need to execute tests in target/test-classes so that the config 
 						files are found -->
-					<systemPropertyVariables>
-						<property>
-							<name>java.net.preferIPv4Stack</name>
-							<value>true</value>
-						</property>
-					</systemPropertyVariables>
 					<workingDirectory>${project.build.testOutputDirectory}</workingDirectory>
 					<excludes>
-						<exclude>**/TestInstanceListener.java</exclude>
 						<!-- Start failing Unit Tests - Remove exclusion when fixed! -->
 						<exclude>**/*DiscoveryService*</exclude>
 						<!-- End failing Unit Tests -->
@@ -59,16 +70,46 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<configuration>
-					<systemPropertyVariables>
-						<property>
-							<name>java.net.preferIPv4Stack</name>
-							<value>true</value>
-						</property>
-					</systemPropertyVariables>
 					<workingDirectory>${project.build.testOutputDirectory}</workingDirectory>
 					<excludes>
 						<exclude>**/TestInstanceListener.java</exclude>
 					</excludes>
+				</configuration>
+			</plugin>
+				<plugin>
+				<!-- Description: https://github.com/ktoso/maven-git-commit-id-plugin
+					Used to show the git ref when starting the jobmanager.
+						-->
+				<groupId>pl.project13.maven</groupId>
+				<artifactId>git-commit-id-plugin</artifactId>
+				<version>2.1.5</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>revision</goal>
+						 </goals>
+					</execution>
+				</executions>
+				<configuration>
+					<dotGitDirectory>${project.basedir}/../../.git</dotGitDirectory>
+					<generateGitPropertiesFile>true</generateGitPropertiesFile>
+					<skipPoms>false</skipPoms>
+					<generateGitPropertiesFilename>src/main/resources/.version.properties</generateGitPropertiesFilename>
+				</configuration>
+			</plugin>
+			<!-- Add version to jar http://stackoverflow.com/questions/2712970/how-to-get-maven-artifact-version-at-runtime
+				-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<inherited>true</inherited>
+				<configuration>
+					<archive>
+						<manifest>
+							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+							<addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+						</manifest>
+					</archive>
 				</configuration>
 			</plugin>
 		</plugins>

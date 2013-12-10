@@ -22,10 +22,6 @@ bin=`cd "$bin"; pwd`
 # get nephele config
 . "$bin"/nephele-config.sh
 
-if [ "$NEPHELE_PID_DIR" = "" ]; then
-        NEPHELE_PID_DIR=/tmp
-fi
-
 if [ "$NEPHELE_IDENT_STRING" = "" ]; then
         NEPHELE_IDENT_STRING="$USER"
 fi
@@ -135,6 +131,7 @@ constructPactWebFrontendClassPath() {
 PACT_WF_CLASSPATH=`manglePathList $(constructPactWebFrontendClassPath)`
 
 log=$NEPHELE_LOG_DIR/nephele-$NEPHELE_IDENT_STRING-pact-web-$HOSTNAME.log
+out=$NEPHELE_LOG_DIR/nephele-$NEPHELE_IDENT_STRING-pact-web-$HOSTNAME.out
 pid=$NEPHELE_PID_DIR/nephele-$NEPHELE_IDENT_STRING-pact-web.pid
 log_setting="-Dlog.file="$log" -Dlog4j.configuration=file:"$NEPHELE_CONF_DIR"/log4j.properties"
 
@@ -149,7 +146,7 @@ case $STARTSTOP in
                         fi
                 fi
                 echo Starting PACT Webfrontend
-		$JAVA_RUN $JVM_ARGS $log_setting -classpath $PACT_WF_CLASSPATH eu.stratosphere.pact.client.WebFrontend -configDir $NEPHELE_CONF_DIR &
+		$JAVA_RUN $JVM_ARGS $log_setting -classpath $PACT_WF_CLASSPATH eu.stratosphere.pact.client.WebFrontend -configDir $NEPHELE_CONF_DIR > "$out" 2>&1 < /dev/null &
 		echo $! > $pid
 	;;
 
@@ -171,5 +168,4 @@ case $STARTSTOP in
         ;;
 
 esac
-
 

@@ -21,26 +21,11 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import eu.stratosphere.nephele.configuration.Configuration;
-import eu.stratosphere.pact.generic.io.FileInputFormat;
-
-
-/**
- *
- */
 public class TestFileUtils {
 	
 	private static final String FILE_PREFIX = "pact_test_";
 	
 	private static final String FILE_SUFFIX = ".tmp";
-	
-	
-	public static Configuration getConfigForFile(long bytes) throws IOException {
-		final String filePath = createTempFile(bytes);
-		final Configuration config = new Configuration();
-		config.setString(FileInputFormat.FILE_PARAMETER_KEY, "file://" + filePath);
-		return config;
-	}
 
 	public static String createTempFile(long bytes) throws IOException {
 		File f = File.createTempFile(FILE_PREFIX, FILE_SUFFIX);
@@ -54,7 +39,7 @@ public class TestFileUtils {
 		} finally {
 			out.close();
 		}
-		return f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	public static String createTempFile(String contents) throws IOException {
@@ -67,17 +52,10 @@ public class TestFileUtils {
 		} finally {
 			out.close();
 		}
-		return f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	// ------------------------------------------------------------------------
-	
-	public static Configuration getConfigForDir(long ... bytes) throws IOException {
-		final String filePath = createTempFileDir(bytes);
-		final Configuration config = new Configuration();
-		config.setString(FileInputFormat.FILE_PARAMETER_KEY, "file://" + filePath);
-		return config;
-	}
 
 	public static String createTempFileDir(long ... bytes) throws IOException {
 		File tempDir = new File(System.getProperty("java.io.tmpdir"));
@@ -101,7 +79,7 @@ public class TestFileUtils {
 				out.close();
 			}
 		}
-		return f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	public static String createTempFileDir(String ... contents) throws IOException {
@@ -124,7 +102,7 @@ public class TestFileUtils {
 				out.close();
 			}
 		}
-		return f.getAbsolutePath();
+		return f.toURI().toString();
 	}
 	
 	public static String randomFileName() {

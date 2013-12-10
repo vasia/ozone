@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import eu.stratosphere.pact.runtime.iterative.io.HashPartitionIterator;
 import org.apache.commons.logging.Log;
@@ -336,7 +337,7 @@ public class MutableHashTable<BT, PT> implements MemorySegmentSource {
 	/**
 	 * Flag indicating that the closing logic has been invoked.
 	 */
-	protected volatile boolean closed;
+	protected AtomicBoolean closed = new AtomicBoolean();
 	
 	/**
 	 * If true, build side partitions are kept for multiple probe steps.
@@ -405,7 +406,7 @@ public class MutableHashTable<BT, PT> implements MemorySegmentSource {
 		this.partitionsPending = new ArrayList<HashPartition<BT, PT>>();
 		
 		// because we allow to open and close multiple times, the state is initially closed
-		this.closed = true;
+		this.closed.set(true);
 	}
 	
 	
@@ -423,10 +424,9 @@ public class MutableHashTable<BT, PT> implements MemorySegmentSource {
 	throws IOException
 	{
 		// sanity checks
-		if (!this.closed) {
+		if (!this.closed.compareAndSet(true, false)) {
 			throw new IllegalStateException("Hash Join cannot be opened, because it is currently not closed.");
 		}
-		this.closed = false;
 		
 		// grab the write behind buffers first
 		for (int i = this.numWriteBehindBuffers; i > 0; --i)
@@ -663,11 +663,9 @@ public class MutableHashTable<BT, PT> implements MemorySegmentSource {
 	 */
 	public void close() {
 		// make sure that we close only once
-		if (this.closed) {
+		if (!this.closed.compareAndSet(false, true)) {
 			return;
 		}
-		
-		this.closed = true;
 		
 		// clear the iterators, so the next call to next() will notice
 		this.bucketIterator = null;
@@ -707,7 +705,8 @@ public class MutableHashTable<BT, PT> implements MemorySegmentSource {
 	}
 	
 	public List<MemorySegment> getFreedMemory() {
-		if (!this.closed) {
+
+		if (!this.closed.get()) {
 			throw new IllegalStateException("Cannot return memory while join is open.");
 		}
 		

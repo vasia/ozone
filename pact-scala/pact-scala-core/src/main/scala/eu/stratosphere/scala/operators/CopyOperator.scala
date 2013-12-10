@@ -25,10 +25,10 @@ import eu.stratosphere.scala.OneInputScalaContract
 import eu.stratosphere.scala.analysis.UDF1
 import eu.stratosphere.scala.analysis.UDTSerializer
 import eu.stratosphere.nephele.configuration.Configuration
-import eu.stratosphere.scala.DataStream
+import eu.stratosphere.scala.DataSet
 
 object CopyOperator {
-  def apply(source: Contract with ScalaContract[_]): DataStream[_] = {
+  def apply(source: Contract with ScalaContract[_]): DataSet[_] = {
     val generatedStub = new MapStub with Serializable {
       val udf: UDF1[_, _] = new UDF1(source.getUDF.outputUDT, source.getUDF.outputUDT)
 
@@ -62,13 +62,15 @@ object CopyOperator {
 
     val ret = new MapContract(builder) with OneInputScalaContract[Nothing, Nothing] {
       override def getUDF = generatedStub.udf.asInstanceOf[UDF1[Nothing, Nothing]]
-      override def annotations = Seq(Annotations.getConstantFields(generatedStub.udf.getForwardIndexArray))
+      override def annotations = Seq(Annotations.getConstantFields(
+        generatedStub.udf.getForwardIndexArrayFrom.zip(generatedStub.udf.getForwardIndexArrayTo)
+          .filter( z => z._1 == z._2).map { _._1}))
       persistHints = { () =>
         this.setName("Copy " + source.getName())
         if (source.getCompilerHints().getAvgBytesPerRecord() >= 0)
           this.getCompilerHints().setAvgBytesPerRecord(source.getCompilerHints().getAvgBytesPerRecord())
       }
     }
-    new DataStream[Nothing](ret)
+    new DataSet[Nothing](ret)
   }
 }

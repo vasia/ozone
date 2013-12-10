@@ -13,40 +13,50 @@
 
 package eu.stratosphere.scala.operators
 
+import java.util.{ Iterator => JIterator }
+
 import language.experimental.macros
 import scala.reflect.macros.Context
-import eu.stratosphere.scala.codegen.MacroContextHolder
-import eu.stratosphere.scala.ScalaContract
+
+import eu.stratosphere.nephele.configuration.Configuration
+
+import eu.stratosphere.pact.generic.contract.Contract
 import eu.stratosphere.pact.common.contract.MapContract
-import eu.stratosphere.scala.analysis.UDT
 import eu.stratosphere.pact.common.`type`.PactRecord
+import eu.stratosphere.pact.common.`type`.base.PactInteger
 import eu.stratosphere.pact.common.stubs.MapStub
 import eu.stratosphere.pact.common.stubs.Collector
-import eu.stratosphere.pact.generic.contract.Contract
-import eu.stratosphere.scala.contracts.Annotations
 import eu.stratosphere.pact.common.contract.ReduceContract
 import eu.stratosphere.pact.common.stubs.ReduceStub
+
+import eu.stratosphere.scala.contracts.Annotations
 import eu.stratosphere.scala.analysis.UDTSerializer
 import eu.stratosphere.scala.analysis.UDF1
 import eu.stratosphere.scala.operators.stubs.DeserializingIterator
-import eu.stratosphere.nephele.configuration.Configuration
-import java.util.{ Iterator => JIterator }
+import eu.stratosphere.scala.codegen.MacroContextHolder
+import eu.stratosphere.scala.ScalaContract
+import eu.stratosphere.scala.analysis.UDT
 import eu.stratosphere.scala.analysis.FieldSelector
 import eu.stratosphere.scala.analysis.FieldSelector
 import eu.stratosphere.scala.OneInputKeyedScalaContract
-import eu.stratosphere.scala.DataStream
+import eu.stratosphere.scala.DataSet
 import eu.stratosphere.scala.OneInputHintable
+import eu.stratosphere.scala.OneInputScalaContract
+import eu.stratosphere.scala.codegen.Util
 
-class GroupByDataStream[In](val keySelection: List[Int], val input: DataStream[In]) {
-  def hadoopReduce[Out](fun: Iterator[In] => Out): DataStream[Out] with OneInputHintable[In, Out] = macro ReduceMacros.clunkyReduce[In, Out]
-  def combinableReduce(fun: Iterator[In] => In): DataStream[In] with OneInputHintable[In, In] = macro ReduceMacros.combinableReduce[In]
+class KeyedDataSet[In](val keySelection: List[Int], val input: DataSet[In]) {
+  def reduceGroup[Out](fun: Iterator[In] => Out): DataSet[Out] with OneInputHintable[In, Out] = macro ReduceMacros.reduceGroup[In, Out]
+  def combinableReduceGroup(fun: Iterator[In] => In): DataSet[In] with OneInputHintable[In, In] = macro ReduceMacros.combinableReduceGroup[In]
   
-  def reduce(fun: (In, In) => In): DataStream[In] with OneInputHintable[In, In] = macro ReduceMacros.properReduce[In]
+  def reduce(fun: (In, In) => In): DataSet[In] with OneInputHintable[In, In] = macro ReduceMacros.reduce[In]
+  
+  def count() : DataSet[(In, Int)] with OneInputHintable[In, (In, Int)] = macro ReduceMacros.count[In]
 }
 
 object ReduceMacros {
   
-  def groupByImpl[In: c.WeakTypeTag, Key: c.WeakTypeTag](c: Context { type PrefixType = DataStream[In] })(keyFun: c.Expr[In => Key]): c.Expr[GroupByDataStream[In]] = {
+  def groupBy[In: c.WeakTypeTag, Key: c.WeakTypeTag](c: Context { type PrefixType = DataSet[In] })
+                                                    (keyFun: c.Expr[In => Key]): c.Expr[KeyedDataSet[In]] = {
     import c.universe._
 
     val slave = MacroContextHolder.newMacroHelper(c)
@@ -54,13 +64,54 @@ object ReduceMacros {
     val keySelection = slave.getSelector(keyFun)
 
     val helper = reify {
-    	new GroupByDataStream[In](keySelection.splice, c.prefix.splice)
+    	new KeyedDataSet[In](keySelection.splice, c.prefix.splice)
     }
 
     return helper
   }
-  
-  def properReduce[In: c.WeakTypeTag](c: Context { type PrefixType = GroupByDataStream[In] })(fun: c.Expr[(In, In) => In]): c.Expr[DataStream[In] with OneInputHintable[In, In]] = {
+
+  def reduce[In: c.WeakTypeTag](c: Context { type PrefixType = KeyedDataSet[In] })
+                               (fun: c.Expr[(In, In) => In]): c.Expr[DataSet[In] with OneInputHintable[In, In]] = {
+    import c.universe._
+
+    reduceImpl(c)(c.prefix, fun)
+  }
+
+  def globalReduce[In: c.WeakTypeTag](c: Context { type PrefixType = DataSet[In] })(fun: c.Expr[(In, In) => In]): c.Expr[DataSet[In] with OneInputHintable[In, In]] = {
+    import c.universe._
+
+    reduceImpl(c)(reify { new KeyedDataSet[In](List[Int](), c.prefix.splice) }, fun)
+  }
+
+  def reduceGroup[In: c.WeakTypeTag, Out: c.WeakTypeTag](c: Context { type PrefixType = KeyedDataSet[In] })
+                                                        (fun: c.Expr[Iterator[In] => Out]): c.Expr[DataSet[Out] with OneInputHintable[In, Out]] = {
+    import c.universe._
+
+    reduceGroupImpl(c)(c.prefix, fun)
+  }
+
+  def globalReduceGroup[In: c.WeakTypeTag, Out: c.WeakTypeTag](c: Context { type PrefixType = DataSet[In] })(fun: c.Expr[Iterator[In] => Out]): c.Expr[DataSet[Out] with OneInputHintable[In, Out]] = {
+    import c.universe._
+
+    reduceGroupImpl(c)(reify { new KeyedDataSet[In](List[Int](), c.prefix.splice) }, fun)
+  }
+
+  def combinableReduceGroup[In: c.WeakTypeTag](c: Context { type PrefixType = KeyedDataSet[In] })
+                                              (fun: c.Expr[Iterator[In] => In]): c.Expr[DataSet[In] with OneInputHintable[In, In]] = {
+    import c.universe._
+
+    combinableReduceGroupImpl(c)(c.prefix, fun)
+  }
+
+  def combinableGlobalReduceGroup[In: c.WeakTypeTag](c: Context { type PrefixType = DataSet[In] })
+                                              (fun: c.Expr[Iterator[In] => In]): c.Expr[DataSet[In] with OneInputHintable[In, In]] = {
+    import c.universe._
+
+    combinableReduceGroupImpl(c)(reify { new KeyedDataSet[In](List[Int](), c.prefix.splice) }, fun)
+  }
+
+  def reduceImpl[In: c.WeakTypeTag](c: Context)
+                               (groupedInput: c.Expr[KeyedDataSet[In]], fun: c.Expr[(In, In) => In]): c.Expr[DataSet[In] with OneInputHintable[In, In]] = {
     import c.universe._
 
     val slave = MacroContextHolder.newMacroHelper(c)
@@ -70,7 +121,7 @@ object ReduceMacros {
     val (udtIn, createUdtIn) = slave.mkUdtClass[In]
     
     val contract = reify {
-      val helper: GroupByDataStream[In] = c.prefix.splice
+      val helper = groupedInput.splice
       val keySelection = helper.keySelection
 
       val generatedStub = new ReduceStub with Serializable {
@@ -84,21 +135,24 @@ object ReduceMacros {
 
         private var combineIterator: DeserializingIterator[In] = null
         private var combineSerializer: UDTSerializer[In] = _
-        private var combineForward: Array[Int] = _
+        private var combineForwardFrom: Array[Int] = _
+        private var combineForwardTo: Array[Int] = _
 
         private var reduceIterator: DeserializingIterator[In] = null
         private var reduceSerializer: UDTSerializer[In] = _
-        private var reduceForward: Array[Int] = _
+        private var reduceForwardFrom: Array[Int] = _
+        private var reduceForwardTo: Array[Int] = _
 
         private def combinerOutputs: Set[Int] = udf.inputFields.filter(_.isUsed).map(_.globalPos.getValue).toSet
         private def forwardedKeys: Set[Int] = keySelector.selectedFields.toIndexSet.diff(combinerOutputs)
 
-        def combineForwardSet: Set[Int] = udf.forwardSet.map(_.getValue).diff(combinerOutputs).union(forwardedKeys).toSet
+        def combineForwardSetFrom: Set[Int] = udf.getForwardIndexSetFrom.diff(combinerOutputs).union(forwardedKeys).toSet
+        def combineForwardSetTo: Set[Int] = udf.getForwardIndexSetTo.diff(combinerOutputs).union(forwardedKeys).toSet
         def combineDiscardSet: Set[Int] = udf.discardSet.map(_.getValue).diff(combinerOutputs).diff(forwardedKeys).toSet
 
         private def combineOutputLength = {
           val outMax = if (combinerOutputs.isEmpty) -1 else combinerOutputs.max
-          val forwardMax = if (combineForwardSet.isEmpty) -1 else combineForwardSet.max
+          val forwardMax = if (combineForwardSetTo.isEmpty) -1 else combineForwardSetTo.max
           math.max(outMax, forwardMax) + 1
         }
 
@@ -110,11 +164,13 @@ object ReduceMacros {
           this.combineIterator = new DeserializingIterator(udf.getInputDeserializer)
           // we are serializing for the input of the reduce...
           this.combineSerializer = udf.getInputDeserializer
-          this.combineForward = combineForwardSet.toArray
+          this.combineForwardFrom = combineForwardSetFrom.toArray
+          this.combineForwardTo = combineForwardSetTo.toArray
 
           this.reduceIterator = new DeserializingIterator(udf.getInputDeserializer)
           this.reduceSerializer = udf.getOutputSerializer
-          this.reduceForward = udf.getForwardIndexArray
+          this.reduceForwardFrom = udf.getForwardIndexArrayFrom.toArray
+          this.reduceForwardTo = udf.getForwardIndexArrayTo.toArray
         }
         
         val userCode = fun.splice
@@ -122,7 +178,7 @@ object ReduceMacros {
         override def combine(records: JIterator[PactRecord], out: Collector[PactRecord]) = {
 
           val firstRecord = combineIterator.initialize(records)
-          combineRecord.copyFrom(firstRecord, combineForward, combineForward)
+          combineRecord.copyFrom(firstRecord, combineForwardFrom, combineForwardTo)
 
           val output = combineIterator.reduce(userCode)
 
@@ -133,7 +189,7 @@ object ReduceMacros {
         override def reduce(records: JIterator[PactRecord], out: Collector[PactRecord]) = {
 
           val firstRecord = reduceIterator.initialize(records)
-          reduceRecord.copyFrom(firstRecord, reduceForward, reduceForward)
+          reduceRecord.copyFrom(firstRecord, reduceForwardFrom, reduceForwardTo)
 
           val output = reduceIterator.reduce(userCode)
 
@@ -144,24 +200,29 @@ object ReduceMacros {
       }
       
       val builder = ReduceContract.builder(generatedStub).input(helper.input.contract)
-      
-      val keyTypes = generatedStub.inputUDT.getKeySet(generatedStub.keySelector.selectedFields map { _.localPos })
-      keyTypes.foreach { builder.keyField(_, -1) } // global indexes haven't been computed yet...
+
+      val keyPositions = generatedStub.keySelector.selectedFields.toIndexArray
+      val keyTypes = generatedStub.inputUDT.getKeySet(keyPositions)
+      // global indexes haven't been computed yet...
+      0 until keyTypes.size foreach { i => builder.keyField(keyTypes(i), keyPositions(i)) }
       
       val ret = new ReduceContract(builder) with OneInputKeyedScalaContract[In, In] {
         override val key: FieldSelector = generatedStub.keySelector
         override def getUDF = generatedStub.udf
-        override def annotations = Annotations.getCombinable() +: Seq(Annotations.getConstantFields(generatedStub.udf.getForwardIndexArray))
+        override def annotations = Annotations.getCombinable() +: Seq(
+          Annotations.getConstantFields(
+            Util.filterNonForwards(getUDF.getForwardIndexArrayFrom, getUDF.getForwardIndexArrayTo)))
       }
-      new DataStream[In](ret) with OneInputHintable[In, In] {}
+      new DataSet[In](ret) with OneInputHintable[In, In] {}
     }
 
-    val result = c.Expr[DataStream[In] with OneInputHintable[In, In]](Block(List(udtIn), contract.tree))
+    val result = c.Expr[DataSet[In] with OneInputHintable[In, In]](Block(List(udtIn), contract.tree))
     
     return result
   }
 
-  def clunkyReduce[In: c.WeakTypeTag, Out: c.WeakTypeTag](c: Context { type PrefixType = GroupByDataStream[In] })(fun: c.Expr[Iterator[In] => Out]): c.Expr[DataStream[Out] with OneInputHintable[In, Out]] = {
+  def reduceGroupImpl[In: c.WeakTypeTag, Out: c.WeakTypeTag](c: Context)
+                                                            (groupedInput: c.Expr[KeyedDataSet[In]], fun: c.Expr[Iterator[In] => Out]): c.Expr[DataSet[Out] with OneInputHintable[In, Out]] = {
     import c.universe._
 
     val slave = MacroContextHolder.newMacroHelper(c)
@@ -172,7 +233,7 @@ object ReduceMacros {
     val (udtOut, createUdtOut) = slave.mkUdtClass[Out]
     
     val contract = reify {
-      val helper: GroupByDataStream[In] = c.prefix.splice
+      val helper: KeyedDataSet[In] = groupedInput.splice
       val keySelection = helper.keySelection
 
       val generatedStub = new ReduceStub with Serializable {
@@ -185,20 +246,22 @@ object ReduceMacros {
 
         private var reduceIterator: DeserializingIterator[In] = null
         private var reduceSerializer: UDTSerializer[Out] = _
-        private var reduceForward: Array[Int] = _
+        private var reduceForwardFrom: Array[Int] = _
+        private var reduceForwardTo: Array[Int] = _
 
         override def open(config: Configuration) = {
           super.open(config)
           this.reduceRecord.setNumFields(udf.getOutputLength)
           this.reduceIterator = new DeserializingIterator(udf.getInputDeserializer)
           this.reduceSerializer = udf.getOutputSerializer
-          this.reduceForward = udf.getForwardIndexArray
+          this.reduceForwardFrom = udf.getForwardIndexArrayFrom
+          this.reduceForwardTo = udf.getForwardIndexArrayTo
         }
 
         override def reduce(records: JIterator[PactRecord], out: Collector[PactRecord]) = {
 
           val firstRecord = reduceIterator.initialize(records)
-          reduceRecord.copyFrom(firstRecord, reduceForward, reduceForward)
+          reduceRecord.copyFrom(firstRecord, reduceForwardFrom, reduceForwardTo)
 
           val output = fun.splice.apply(reduceIterator)
 
@@ -209,24 +272,29 @@ object ReduceMacros {
       }
       
       val builder = ReduceContract.builder(generatedStub).input(helper.input.contract)
-      
-      val keyTypes = generatedStub.inputUDT.getKeySet(generatedStub.keySelector.selectedFields map { _.localPos })
-      keyTypes.foreach { builder.keyField(_, -1) } // global indexes haven't been computed yet...
+
+      val keyPositions = generatedStub.keySelector.selectedFields.toIndexArray
+      val keyTypes = generatedStub.inputUDT.getKeySet(keyPositions)
+      // global indexes haven't been computed yet...
+      0 until keyTypes.size foreach { i => builder.keyField(keyTypes(i), keyPositions(i)) }
       
       val ret = new ReduceContract(builder) with OneInputKeyedScalaContract[In, Out] {
         override val key: FieldSelector = generatedStub.keySelector
         override def getUDF = generatedStub.udf
-        override def annotations = Seq(Annotations.getConstantFields(generatedStub.udf.getForwardIndexArray))
+        override def annotations = Seq(
+          Annotations.getConstantFields(
+            Util.filterNonForwards(getUDF.getForwardIndexArrayFrom, getUDF.getForwardIndexArrayTo)))
       }
-      new DataStream[Out](ret) with OneInputHintable[In, Out] {}
+      new DataSet[Out](ret) with OneInputHintable[In, Out] {}
     }
 
-    val result = c.Expr[DataStream[Out] with OneInputHintable[In, Out]](Block(List(udtIn, udtOut), contract.tree))
+    val result = c.Expr[DataSet[Out] with OneInputHintable[In, Out]](Block(List(udtIn, udtOut), contract.tree))
     
     return result
   }
   
-  def combinableReduce[In: c.WeakTypeTag](c: Context { type PrefixType = GroupByDataStream[In] })(fun: c.Expr[Iterator[In] => In]): c.Expr[DataStream[In] with OneInputHintable[In, In]] = {
+  def combinableReduceGroupImpl[In: c.WeakTypeTag](c: Context)
+                                              (groupedInput: c.Expr[KeyedDataSet[In]], fun: c.Expr[Iterator[In] => In]): c.Expr[DataSet[In] with OneInputHintable[In, In]] = {
     import c.universe._
 
     val slave = MacroContextHolder.newMacroHelper(c)
@@ -236,7 +304,7 @@ object ReduceMacros {
     val (udtIn, createUdtIn) = slave.mkUdtClass[In]
     
     val contract = reify {
-      val helper: GroupByDataStream[In] = c.prefix.splice
+      val helper: KeyedDataSet[In] = groupedInput.splice
       val keySelection = helper.keySelection
 
       val generatedStub = new ReduceStub with Serializable {
@@ -250,21 +318,24 @@ object ReduceMacros {
 
         private var combineIterator: DeserializingIterator[In] = null
         private var combineSerializer: UDTSerializer[In] = _
-        private var combineForward: Array[Int] = _
+        private var combineForwardFrom: Array[Int] = _
+        private var combineForwardTo: Array[Int] = _
 
         private var reduceIterator: DeserializingIterator[In] = null
         private var reduceSerializer: UDTSerializer[In] = _
-        private var reduceForward: Array[Int] = _
+        private var reduceForwardFrom: Array[Int] = _
+        private var reduceForwardTo: Array[Int] = _
 
         private def combinerOutputs: Set[Int] = udf.inputFields.filter(_.isUsed).map(_.globalPos.getValue).toSet
         private def forwardedKeys: Set[Int] = keySelector.selectedFields.toIndexSet.diff(combinerOutputs)
 
-        def combineForwardSet: Set[Int] = udf.forwardSet.map(_.getValue).diff(combinerOutputs).union(forwardedKeys).toSet
+        def combineForwardSetFrom: Set[Int] = udf.getForwardIndexSetFrom.diff(combinerOutputs).union(forwardedKeys).toSet
+        def combineForwardSetTo: Set[Int] = udf.getForwardIndexSetTo.diff(combinerOutputs).union(forwardedKeys).toSet
         def combineDiscardSet: Set[Int] = udf.discardSet.map(_.getValue).diff(combinerOutputs).diff(forwardedKeys).toSet
 
         private def combineOutputLength = {
           val outMax = if (combinerOutputs.isEmpty) -1 else combinerOutputs.max
-          val forwardMax = if (combineForwardSet.isEmpty) -1 else combineForwardSet.max
+          val forwardMax = if (combineForwardSetTo.isEmpty) -1 else combineForwardSetTo.max
           math.max(outMax, forwardMax) + 1
         }
 
@@ -276,11 +347,13 @@ object ReduceMacros {
           this.combineIterator = new DeserializingIterator(udf.getInputDeserializer)
           // we are serializing for the input of the reduce...
           this.combineSerializer = udf.getInputDeserializer
-          this.combineForward = combineForwardSet.toArray
+          this.combineForwardFrom = combineForwardSetFrom.toArray
+          this.combineForwardTo = combineForwardSetTo.toArray
 
           this.reduceIterator = new DeserializingIterator(udf.getInputDeserializer)
           this.reduceSerializer = udf.getOutputSerializer
-          this.reduceForward = udf.getForwardIndexArray
+          this.reduceForwardFrom = udf.getForwardIndexArrayFrom
+          this.reduceForwardTo = udf.getForwardIndexArrayTo
         }
         
         val userCode = fun.splice
@@ -288,7 +361,7 @@ object ReduceMacros {
         override def combine(records: JIterator[PactRecord], out: Collector[PactRecord]) = {
 
           val firstRecord = combineIterator.initialize(records)
-          combineRecord.copyFrom(firstRecord, combineForward, combineForward)
+          combineRecord.copyFrom(firstRecord, combineForwardFrom, combineForwardTo)
 
           val output = userCode.apply(combineIterator)
 
@@ -299,7 +372,7 @@ object ReduceMacros {
         override def reduce(records: JIterator[PactRecord], out: Collector[PactRecord]) = {
 
           val firstRecord = reduceIterator.initialize(records)
-          reduceRecord.copyFrom(firstRecord, reduceForward, reduceForward)
+          reduceRecord.copyFrom(firstRecord, reduceForwardFrom, reduceForwardTo)
 
           val output = userCode.apply(reduceIterator)
 
@@ -310,19 +383,92 @@ object ReduceMacros {
       }
       
       val builder = ReduceContract.builder(generatedStub).input(helper.input.contract)
-      
-      val keyTypes = generatedStub.inputUDT.getKeySet(generatedStub.keySelector.selectedFields map { _.localPos })
-      keyTypes.foreach { builder.keyField(_, -1) } // global indexes haven't been computed yet...
+
+      val keyPositions = generatedStub.keySelector.selectedFields.toIndexArray
+      val keyTypes = generatedStub.inputUDT.getKeySet(keyPositions)
+      // global indexes haven't been computed yet...
+      0 until keyTypes.size foreach { i => builder.keyField(keyTypes(i), keyPositions(i)) }
       
       val ret = new ReduceContract(builder) with OneInputKeyedScalaContract[In, In] {
         override val key: FieldSelector = generatedStub.keySelector
         override def getUDF = generatedStub.udf
-        override def annotations = Annotations.getCombinable() +: Seq(Annotations.getConstantFields(generatedStub.udf.getForwardIndexArray))
+        override def annotations = Annotations.getCombinable() +: Seq(
+          Annotations.getConstantFields(
+            Util.filterNonForwards(getUDF.getForwardIndexArrayFrom, getUDF.getForwardIndexArrayTo)))
       }
-      new DataStream[In](ret) with OneInputHintable[In, In] {}
+      new DataSet[In](ret) with OneInputHintable[In, In] {}
     }
 
-    val result = c.Expr[DataStream[In] with OneInputHintable[In, In]](Block(List(udtIn), contract.tree))
+    val result = c.Expr[DataSet[In] with OneInputHintable[In, In]](Block(List(udtIn), contract.tree))
+    
+    return result
+  }
+
+  def count[In: c.WeakTypeTag](c: Context { type PrefixType = KeyedDataSet[In] })() : c.Expr[DataSet[(In, Int)] with OneInputHintable[In, (In, Int)]] = {
+    import c.universe._
+
+    val slave = MacroContextHolder.newMacroHelper(c)
+
+    val (udtIn, createUdtIn) = slave.mkUdtClass[In]
+    val (udtOut, createUdtOut) = slave.mkUdtClass[(In, Int)]
+    
+    val contract = reify {
+      val helper: KeyedDataSet[In] = c.prefix.splice
+      val keySelection = helper.keySelection
+
+      val generatedStub = new ReduceStub with Serializable {
+        val inputUDT = c.Expr[UDT[In]](createUdtIn).splice
+        val outputUDT = c.Expr[UDT[(In, Int)]](createUdtOut).splice
+        val keySelector = new FieldSelector(inputUDT, keySelection)
+        val udf: UDF1[In, (In, Int)] = new UDF1(inputUDT, outputUDT)
+        
+        private val reduceRecord = new PactRecord()
+        private val pactInt = new PactInteger()
+
+        private var countPosition: Int = 0;
+
+        override def open(config: Configuration) = {
+          super.open(config)
+          this.countPosition = udf.getOutputLength - 1;
+        }
+        
+        override def reduce(records: JIterator[PactRecord], result: Collector[PactRecord]) : Unit = {
+          
+          var record : PactRecord = null
+          var counter: Int = 0
+          while (records.hasNext()) {
+            record = records.next()
+            val count = if (record.getNumFields() <= countPosition || record.isNull(countPosition)) 1 else record.getField(countPosition, pactInt).getValue()
+            counter = counter + count
+          }
+          
+          pactInt.setValue(counter)
+          record.setField(countPosition, pactInt)
+          result.collect(record)
+        }
+        
+        override def combine(records: JIterator[PactRecord], result: Collector[PactRecord]) : Unit = {
+          reduce(records, result)
+        }
+
+      }
+      
+      val builder = ReduceContract.builder(generatedStub).input(helper.input.contract)
+
+      val keyPositions = generatedStub.keySelector.selectedFields.toIndexArray
+      val keyTypes = generatedStub.inputUDT.getKeySet(keyPositions)
+      // global indexes haven't been computed yet...
+      0 until keyTypes.size foreach { i => builder.keyField(keyTypes(i), keyPositions(i)) }
+      
+      val ret = new ReduceContract(builder) with OneInputKeyedScalaContract[In, (In, Int)] {
+        override val key: FieldSelector = generatedStub.keySelector
+        override def getUDF = generatedStub.udf
+        override def annotations = Annotations.getCombinable() +: Seq(Annotations.getConstantFieldsExcept(Array[Int]()))
+      }
+      new DataSet[(In, Int)](ret) with OneInputHintable[In, (In, Int)] {}
+    }
+
+    val result = c.Expr[DataSet[(In, Int)] with OneInputHintable[In, (In, Int)]](Block(List(udtIn, udtOut), contract.tree))
     
     return result
   }

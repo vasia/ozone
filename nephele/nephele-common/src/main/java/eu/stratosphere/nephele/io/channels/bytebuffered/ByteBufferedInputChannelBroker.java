@@ -18,13 +18,11 @@ package eu.stratosphere.nephele.io.channels.bytebuffered;
 import java.io.IOException;
 
 import eu.stratosphere.nephele.event.task.AbstractEvent;
-import eu.stratosphere.nephele.io.channels.Buffer;
+
 
 public interface ByteBufferedInputChannelBroker {
 
-	public void releaseConsumedReadBuffer(Buffer buffer);
-
-	public Buffer getReadBufferToConsume();
+	public BufferOrEvent getNextBufferOrEvent() throws IOException;
 
 	/**
 	 * Forwards the given event to the connected network output channel on a best effort basis.
@@ -34,7 +32,7 @@ public interface ByteBufferedInputChannelBroker {
 	 * @throws InterruptedException
 	 *         thrown if the thread is interrupted while waiting for the event to be transfered
 	 * @throws IOException
-	 *         thrown if an I/O error occurs while transfering the event
+	 *         thrown if an I/O error occurs while transferring the event
 	 */
 	void transferEventToOutputChannel(AbstractEvent event) throws IOException, InterruptedException;
 }

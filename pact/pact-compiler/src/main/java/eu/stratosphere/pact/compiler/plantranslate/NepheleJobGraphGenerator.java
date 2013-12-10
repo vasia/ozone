@@ -57,7 +57,7 @@ import eu.stratosphere.pact.compiler.plan.candidate.SingleInputPlanNode;
 import eu.stratosphere.pact.compiler.plan.candidate.SinkPlanNode;
 import eu.stratosphere.pact.compiler.plan.candidate.SolutionSetPlanNode;
 import eu.stratosphere.pact.compiler.plan.candidate.SourcePlanNode;
-import eu.stratosphere.pact.compiler.plan.candidate.UnionPlanNode;
+import eu.stratosphere.pact.compiler.plan.candidate.NAryUnionPlanNode;
 import eu.stratosphere.pact.compiler.plan.candidate.WorksetIterationPlanNode;
 import eu.stratosphere.pact.compiler.plan.candidate.WorksetPlanNode;
 import eu.stratosphere.pact.generic.contract.AggregatorRegistry;
@@ -165,14 +165,6 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 		// generate Nephele job graph
 		pactPlan.accept(this);
 		
-		// now that the traversal is done, we have the chained tasks write their configs into their
-		// parents' configurations
-		for (int i = 0; i < this.chainedTasksInSequence.size(); i++) {
-			TaskInChain tic = this.chainedTasksInSequence.get(i);
-			TaskConfig t = new TaskConfig(tic.getContainingVertex().getConfiguration());
-			t.addChainedTask(tic.getChainedTask(), tic.getTaskConfig(), tic.getTaskName());
-		}
-		
 		// finalize the iterations
 		for (IterationDescriptor iteration : this.iterations.values()) {
 			if (iteration.getIterationNode() instanceof BulkIterationPlanNode) {
@@ -182,6 +174,14 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 			} else {
 				throw new CompilerException();
 			}
+		}
+		
+		// now that the traversal is done, we have the chained tasks write their configs into their
+		// parents' configurations
+		for (int i = 0; i < this.chainedTasksInSequence.size(); i++) {
+			TaskInChain tic = this.chainedTasksInSequence.get(i);
+			TaskConfig t = new TaskConfig(tic.getContainingVertex().getConfiguration());
+			t.addChainedTask(tic.getChainedTask(), tic.getTaskConfig(), tic.getTaskName());
 		}
 
 		// now that all have been created, make sure that all share their instances with the one
@@ -230,7 +230,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 	@Override
 	public boolean preVisit(PlanNode node) {
 		// check if we have visited this node before. in non-tree graphs, this happens
-		if (this.vertices.containsKey(node) || this.chainedTasks.containsKey(node)) {
+		if (this.vertices.containsKey(node) || this.chainedTasks.containsKey(node) || this.iterations.containsKey(node)) {
 			// return false to prevent further descend
 			return false;
 		}
@@ -295,7 +295,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 			else if (node instanceof DualInputPlanNode) {
 				vertex = createDualInputVertex((DualInputPlanNode) node);
 			}
-			else if (node instanceof UnionPlanNode) {
+			else if (node instanceof NAryUnionPlanNode) {
 				// skip the union for now
 				vertex = null;
 			}
@@ -376,7 +376,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 			// skip data source node (they have no inputs)
 			// also, do nothing for union nodes, we connect them later when gathering the inputs for a task
 			// solution sets have no input. the initial solution set input is connected when the iteration node is in its postVisit
-			if (node instanceof SourcePlanNode || node instanceof UnionPlanNode) {
+			if (node instanceof SourcePlanNode || node instanceof NAryUnionPlanNode) {
 				return;
 			}
 			
@@ -573,8 +573,8 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 		final PlanNode inputPlanNode = input.getSource();
 		final Iterator<Channel> allInChannels;
 		
-		if (inputPlanNode instanceof UnionPlanNode) {
-			allInChannels = ((UnionPlanNode) inputPlanNode).getListOfInputs().iterator();
+		if (inputPlanNode instanceof NAryUnionPlanNode) {
+			allInChannels = ((NAryUnionPlanNode) inputPlanNode).getListOfInputs().iterator();
 		}
 		else if (inputPlanNode instanceof BulkPartialSolutionPlanNode) {
 			if (this.vertices.get(inputPlanNode) == null) {
@@ -583,8 +583,8 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 				final BulkIterationPlanNode iterationNode = pspn.getContainingIterationNode();
 				
 				// check if the iteration's input is a union
-				if (iterationNode.getInput().getSource() instanceof UnionPlanNode) {
-					allInChannels = ((UnionPlanNode) iterationNode.getInput().getSource()).getInputs();
+				if (iterationNode.getInput().getSource() instanceof NAryUnionPlanNode) {
+					allInChannels = ((NAryUnionPlanNode) iterationNode.getInput().getSource()).getInputs();
 				} else {
 					allInChannels = Collections.singletonList(iterationNode.getInput()).iterator();
 				}
@@ -602,8 +602,8 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 				final WorksetIterationPlanNode iterationNode = wspn.getContainingIterationNode();
 				
 				// check if the iteration's input is a union
-				if (iterationNode.getInput2().getSource() instanceof UnionPlanNode) {
-					allInChannels = ((UnionPlanNode) iterationNode.getInput2().getSource()).getInputs();
+				if (iterationNode.getInput2().getSource() instanceof NAryUnionPlanNode) {
+					allInChannels = ((NAryUnionPlanNode) iterationNode.getInput2().getSource()).getInputs();
 				} else {
 					allInChannels = Collections.singletonList(iterationNode.getInput2()).iterator();
 				}
@@ -724,14 +724,16 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 			Channel inConn = node.getInput();
 			PlanNode pred = inConn.getSource();
 			chaining = ds.getPushChainDriverClass() != null &&
-					!(pred instanceof UnionPlanNode) &&	// union requires a union gate
+					!(pred instanceof NAryUnionPlanNode) &&	// first op after union is stand-alone, because union is merged
 					!(pred instanceof BulkPartialSolutionPlanNode) &&	// partial solution merges anyways
+					!(pred instanceof IterationPlanNode) && // cannot chain with iteration heads currently
 					inConn.getShipStrategy() == ShipStrategyType.FORWARD &&
 					inConn.getLocalStrategy() == LocalStrategy.NONE &&
 					pred.getOutgoingChannels().size() == 1 &&
 					node.getDegreeOfParallelism() == pred.getDegreeOfParallelism() && 
 					node.getSubtasksPerInstance() == pred.getSubtasksPerInstance() &&
-							node.getOutgoingChannels().size() > 0;
+					node.getOutgoingChannels().size() > 0;
+					node.getOutgoingChannels().size() > 0;
 		}
 		
 		final JobTaskVertex vertex;
@@ -848,7 +850,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 					c.getTempMode() == TempMode.NONE &&
 					successor.getDegreeOfParallelism() == pspn.getDegreeOfParallelism() &&
 					successor.getSubtasksPerInstance() == pspn.getSubtasksPerInstance() &&
-					!(successor instanceof UnionPlanNode) &&
+					!(successor instanceof NAryUnionPlanNode) &&
 					successor != iteration.getRootOfStepFunction() &&
 					iteration.getInput().getLocalStrategy() == LocalStrategy.NONE;
 		} else {
@@ -917,7 +919,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 					c.getTempMode() == TempMode.NONE &&
 					successor.getDegreeOfParallelism() == wspn.getDegreeOfParallelism() &&
 					successor.getSubtasksPerInstance() == wspn.getSubtasksPerInstance() &&
-					!(successor instanceof UnionPlanNode) &&
+					!(successor instanceof NAryUnionPlanNode) &&
 					successor != iteration.getNextWorkSetPlanNode() &&
 					iteration.getInitialWorksetInput().getLocalStrategy() == LocalStrategy.NONE;
 		} else {
@@ -987,7 +989,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 	 * NOTE: The channel for global and local strategies are different if we connect a union. The global strategy
 	 * channel is then the channel into the union node, the local strategy channel the one from the union to the
 	 * actual target operator.
-	 * 
+	 *
 	 * @param channelForGlobalStrategy
 	 * @param channelForLocalStrategy
 	 * @param inputNumber
@@ -1150,6 +1152,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 		}
 		rootOfStepFunctionVertex.setTaskClass(IterationTailPactTask.class);
 		tailConfig.setOutputSerializer(bulkNode.getSerializerForIterationChannel());
+        tailConfig.setIsWorksetUpdate();
 		
 		// create the fake output task
 		JobOutputVertex fakeTail = new JobOutputVertex("Fake Tail", this.jobGraph);
@@ -1206,7 +1209,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 				throw new CompilerException("Bug: No memory has been assigned to the workset iteration.");
 			}
 			
-			headConfig.setWorksetIteration();
+			headConfig.setIsWorksetIteration();
 			headConfig.setBackChannelMemory(mem / 2);
 			headConfig.setSolutionSetMemory(mem / 2);
 			
@@ -1259,9 +1262,12 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 				tailConfig = new TaskConfig(nextWorksetVertex.getConfiguration());
 			}
 			nextWorksetVertex.setTaskClass(IterationTailPactTask.class);
-			
+
 			tailConfig.setOutputSerializer(iterNode.getWorksetSerializer());
-			
+            tailConfig.setIsWorksetIteration();
+            tailConfig.setIsWorksetUpdate();
+            tailConfig.setIsSolutionSetUpdate();
+
 			// create the fake output task
 			JobOutputVertex fakeTail = new JobOutputVertex("Fake Tail", this.jobGraph);
 			fakeTail.setOutputClass(FakeOutputTask.class);
@@ -1279,7 +1285,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 			// the fake channel is statically typed to pact record. no data is sent over this channel anyways.
 			
 			// mark the iteration tail as a workset iteration, such that it instantiates the workset element count aggregator
-			tailConfig.setWorksetIteration();
+			tailConfig.setIsWorksetIteration();
 		}
 		
 		// ------------------- mark the solution set delta node as solution set updating -------------------
@@ -1298,10 +1304,10 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 			} else {
 				solutionDeltaConfig = new TaskConfig(solutionDeltaVertex.getConfiguration());
 			}
-			solutionDeltaConfig.setUpdateSolutionSet();
+			solutionDeltaConfig.setIsSolutionSetUpdate();
 			
 			// hack!!! for now, we support only immediate updates
-			solutionDeltaConfig.setUpdateSolutionSetWithoutReprobe();
+			solutionDeltaConfig.setIsSolutionSetUpdateWithoutReprobe();
 		}
 		
 		// ------------------- register the aggregators -------------------

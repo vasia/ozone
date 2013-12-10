@@ -200,9 +200,13 @@ public class TaskConfig {
 	private static final String ITERATION_SOLUTION_SET_UPDATE = "pact.iterative.ss-update";
 	
 	private static final String ITERATION_SOLUTION_SET_UPDATE_SKIP_REPROBE = "pact.iterative.ss-update-fast";
-	
+
 	private static final String ITERATION_SOLUTION_SET_JOIN_NUM = "pact.iterative.ss-join-id";
-	
+
+    private static final String ITERATION_SOLUTION_SET_UPDATE_WAIT = "pact.iterative.ss-wait";
+
+    private static final String ITERATION_WORKSET_UPDATE = "pact.iterative.ws-update";
+
 	// ---------------------------------- Miscellaneous -------------------------------------------
 	
 	private static final char SEPARATOR = '.';
@@ -258,7 +262,7 @@ public class TaskConfig {
 	public <T> UserCodeWrapper<T> getStubWrapper(ClassLoader cl)
 	{
 		try {
-			return (UserCodeWrapper<T>) InstantiationUtil.readObjectFormConfig(this.config, STUB_OBJECT, cl);
+			return (UserCodeWrapper<T>) InstantiationUtil.readObjectFromConfig(this.config, STUB_OBJECT, cl);
 		} catch (ClassNotFoundException e) {
 			throw new CorruptConfigurationException("Could not read the user code wrapper: " + e);
 		} catch (IOException e) {
@@ -764,11 +768,11 @@ public class TaskConfig {
 		return id;
 	}
 	
-	public void setWorksetIteration() {
+	public void setIsWorksetIteration() {
 		this.config.setBoolean(ITERATION_WORKSET_MARKER, true);
 	}
 	
-	public boolean isWorksetIteration() {
+	public boolean getIsWorksetIteration() {
 		return this.config.getBoolean(ITERATION_WORKSET_MARKER, false);
 	}
 	
@@ -925,19 +929,19 @@ public class TaskConfig {
 		return this.config.getString(ITERATION_CONVERGENCE_CRITERION_AGG_NAME, null);
 	}
 	
-	public void setUpdateSolutionSet() {
+	public void setIsSolutionSetUpdate() {
 		this.config.setBoolean(ITERATION_SOLUTION_SET_UPDATE, true);
 	}
 	
-	public boolean getUpdateSolutionSet() {
+	public boolean getIsSolutionSetUpdate() {
 		return this.config.getBoolean(ITERATION_SOLUTION_SET_UPDATE, false);
 	}
 	
-	public void setUpdateSolutionSetWithoutReprobe() {
+	public void setIsSolutionSetUpdateWithoutReprobe() {
 		this.config.setBoolean(ITERATION_SOLUTION_SET_UPDATE_SKIP_REPROBE, true);
 	}
 	
-	public boolean getUpdateSolutionSetWithoutReprobe() {
+	public boolean getIsSolutionSetUpdateWithoutReprobe() {
 		return this.config.getBoolean(ITERATION_SOLUTION_SET_UPDATE_SKIP_REPROBE, false);
 	}
 	
@@ -948,6 +952,22 @@ public class TaskConfig {
 	public int getIterationSolutionSetJoinNum() {
 		return this.config.getInteger(ITERATION_SOLUTION_SET_JOIN_NUM, -1);
 	}
+
+    public void setWaitForSolutionSetUpdate() {
+        this.config.setBoolean(ITERATION_SOLUTION_SET_UPDATE_WAIT, true);
+    }
+
+    public boolean getWaitForSolutionSetUpdate() {
+        return this.config.getBoolean(ITERATION_SOLUTION_SET_UPDATE_WAIT, false);
+    }
+
+    public void setIsWorksetUpdate() {
+        this.config.setBoolean(ITERATION_WORKSET_UPDATE, true);
+    }
+
+    public boolean getIsWorksetUpdate() {
+        return this.config.getBoolean(ITERATION_WORKSET_UPDATE, false);
+    }
 
 	// --------------------------------------------------------------------------------------------
 	//                                    Miscellaneous

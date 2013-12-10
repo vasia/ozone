@@ -64,7 +64,7 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 		public void map(PactRecord record, Collector<PactRecord> collector) {
 			// get the first field (as type PactString) from the record
 			PactString line = record.getField(0, PactString.class);
-			
+
 			// normalize the line
 			AsciiUtils.replaceNonWordChars(line, ' ');
 			AsciiUtils.toLowerCase(line);
@@ -88,6 +88,7 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 	@Combinable
 	@ConstantFields(0)
 	public static class CountWords extends ReduceStub implements Serializable {
+		
 		private static final long serialVersionUID = 1L;
 		
 		private final PactInteger cnt = new PactInteger();
@@ -107,19 +108,14 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 			out.collect(element);
 		}
 		
-		/* (non-Javadoc)
-		 * @see eu.stratosphere.pact.common.stubs.ReduceStub#combine(java.util.Iterator, eu.stratosphere.pact.common.stubs.Collector)
-		 */
 		@Override
 		public void combine(Iterator<PactRecord> records, Collector<PactRecord> out) throws Exception {
 			// the logic is the same as in the reduce function, so simply call the reduce method
-			this.reduce(records, out);
+			reduce(records, out);
 		}
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
+
 	@Override
 	public Plan getPlan(String... args) {
 		// parse job parameters
@@ -149,18 +145,27 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 		return plan;
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
+
 	@Override
 	public String getDescription() {
 		return "Parameters: [numSubStasks] [input] [output]";
 	}
+
 	
 	public static void main(String[] args) throws Exception {
 		WordCount wc = new WordCount();
-		Plan plan = wc.getPlan("1", "file:///path/to/input", "file:///path/to/output");
+		
+		if (args.length < 3) {
+			System.err.println(wc.getDescription());
+			System.exit(1);
+		}
+		
+		Plan plan = wc.getPlan(args);
+		
+		// This will execute the word-count embedded in a local context. replace this line by the commented
+		// succeeding line to send the job to a local installation or to a cluster for execution
 		LocalExecutor.execute(plan);
-		System.exit(0);
+//		PlanExecutor ex = new RemoteExecutor("localhost", 6123, "target/pact-examples-0.4-SNAPSHOT-WordCount.jar");
+//		ex.executePlan(plan);
 	}
 }

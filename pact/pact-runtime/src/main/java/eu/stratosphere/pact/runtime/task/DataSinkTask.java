@@ -26,15 +26,22 @@ import eu.stratosphere.nephele.execution.librarycache.LibraryCacheManager;
 import eu.stratosphere.nephele.fs.FileStatus;
 import eu.stratosphere.nephele.fs.FileSystem;
 import eu.stratosphere.nephele.fs.Path;
+import eu.stratosphere.nephele.io.MutableReader;
 import eu.stratosphere.nephele.io.MutableRecordReader;
+import eu.stratosphere.nephele.io.MutableUnionRecordReader;
 import eu.stratosphere.nephele.template.AbstractOutputTask;
+import eu.stratosphere.nephele.types.Record;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.util.MutableObjectIterator;
 import eu.stratosphere.pact.generic.io.FileOutputFormat;
 import eu.stratosphere.pact.generic.io.OutputFormat;
+import eu.stratosphere.pact.generic.types.TypeComparatorFactory;
 import eu.stratosphere.pact.generic.types.TypeSerializer;
 import eu.stratosphere.pact.generic.types.TypeSerializerFactory;
 import eu.stratosphere.pact.runtime.plugable.DeserializationDelegate;
+import eu.stratosphere.pact.runtime.plugable.pactrecord.PactRecordSerializer;
+import eu.stratosphere.pact.runtime.sort.UnilateralSortMerger;
+import eu.stratosphere.pact.runtime.task.util.CloseableInputProvider;
 import eu.stratosphere.pact.runtime.task.util.NepheleReaderIterator;
 import eu.stratosphere.pact.runtime.task.util.PactRecordNepheleReaderIterator;
 import eu.stratosphere.pact.runtime.task.util.TaskConfig;
@@ -60,8 +67,14 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 	// input reader
 	private MutableObjectIterator<IT> reader;
 	
+	// input iterator
+	 private MutableObjectIterator<IT> input;
+	
 	// The serializer for the input type
 	private TypeSerializer<IT> inputTypeSerializer;
+	
+	// local strategy
+	private CloseableInputProvider<IT> localStrategy;
 
 	// task configuration
 	private TaskConfig config;
@@ -83,8 +96,13 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 		// initialize OutputFormat
 		initOutputFormat();
 		
-		// initialize input reader
-		initInputReader();
+		// initialize input readers
+		try {
+			initInputReaders();
+		} catch (Exception e) {
+			throw new RuntimeException("Initializing the input streams failed" +
+				e.getMessage() == null ? "." : ": " + e.getMessage(), e);
+		}
 
 		if (LOG.isDebugEnabled())
 			LOG.debug(getLogString("Finished registering input and output"));
@@ -100,8 +118,44 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 			LOG.info(getLogString("Start PACT code"));
 		
 		try {
+			
+			// initialize local strategies
+			switch (this.config.getInputLocalStrategy(0)) {
+			case NONE:
+				// nothing to do
+				localStrategy = null;
+				input = reader;
+				break;
+			case SORT:
+				// initialize sort local strategy
+				try {
+					// get type comparator
+					TypeComparatorFactory<IT> compFact = this.config.getInputComparator(0, this.userCodeClassLoader);
+					if (compFact == null) {
+						throw new Exception("Missing comparator factory for local strategy on input " + 0);
+					}
+					
+					// initialize sorter
+					UnilateralSortMerger<IT> sorter = new UnilateralSortMerger<IT>(
+							getEnvironment().getMemoryManager(), 
+							getEnvironment().getIOManager(),
+							this.reader, this, this.inputTypeSerializer, compFact.createComparator(),
+							this.config.getMemoryInput(0), this.config.getFilehandlesInput(0),
+							this.config.getSpillingThresholdInput(0));
+					
+					this.localStrategy = sorter;
+					this.input = sorter.getIterator();
+				} catch (Exception e) {
+					throw new RuntimeException("Initializing the input processing failed" +
+						e.getMessage() == null ? "." : ": " + e.getMessage(), e);
+				}
+				break;
+			default:
+				throw new RuntimeException("Invalid local strategy for DataSinkTask");
+			}
+			
 			// read the reader and write it to the output
-			final MutableObjectIterator<IT> reader = this.reader;
+			final MutableObjectIterator<IT> input = this.input;
 			final OutputFormat<IT> format = this.format;
 			final IT record = this.inputTypeSerializer.createInstance();
 			
@@ -121,14 +175,14 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 			// special case the pact record / file variant
 			if (record.getClass() == PactRecord.class && format instanceof eu.stratosphere.pact.common.io.FileOutputFormat) {
 				@SuppressWarnings("unchecked")
-				final MutableObjectIterator<PactRecord> pi = (MutableObjectIterator<PactRecord>) reader;
+				final MutableObjectIterator<PactRecord> pi = (MutableObjectIterator<PactRecord>) input;
 				final PactRecord pr = (PactRecord) record;
 				final eu.stratosphere.pact.common.io.FileOutputFormat pf = (eu.stratosphere.pact.common.io.FileOutputFormat) format;
 				while (!this.taskCanceled && pi.next(pr)) {
 					pf.writeRecord(pr);
 				}
 			} else {
-				while (!this.taskCanceled && reader.next(record)) {
+				while (!this.taskCanceled && input.next(record)) {
 					format.writeRecord(record);
 				}
 			}
@@ -157,6 +211,14 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 				catch (Throwable t) {
 					if (LOG.isWarnEnabled())
 						LOG.warn(getLogString("Error closing the ouput format."), t);
+				}
+			}
+			// close local strategy if necessary
+			if (localStrategy != null) {
+				try {
+					this.localStrategy.close();
+				} catch (Throwable t) {
+					LOG.error("Error closing local strategy", t);
 				}
 			}
 		}
@@ -247,22 +309,54 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 	}
 
 	/**
-	 * Initializes the input reader of the DataSinkTask.
+	 * Initializes the input readers of the DataSinkTask.
 	 * 
 	 * @throws RuntimeException
-	 *         Thrown if no input ship strategy was provided.
+	 *         Thrown in case of invalid task input configuration.
 	 */
-	private void initInputReader() {
+	@SuppressWarnings("unchecked")
+	private void initInputReaders() throws Exception {
+		
+		MutableReader<?> inputReader;
+		
+		int numGates = 0;
+		//  ---------------- create the input readers ---------------------
+		// in case where a logical input unions multiple physical inputs, create a union reader
+		final int groupSize = this.config.getGroupSize(0);
+		numGates += groupSize;
+		if (groupSize == 1) {
+			// non-union case
+			inputReader = new MutableRecordReader<DeserializationDelegate<IT>>(this);
+		} else if (groupSize > 1){
+			// union case
+			
+			MutableRecordReader<Record>[] readers = new MutableRecordReader[groupSize];
+			for (int j = 0; j < groupSize; ++j) {
+				readers[j] = new MutableRecordReader<Record>(this);
+			}
+			inputReader = new MutableUnionRecordReader<Record>(readers);
+		} else {
+			throw new Exception("Illegal input group size in task configuration: " + groupSize);
+		}
+		
 		final TypeSerializerFactory<IT> serializerFactory = this.config.getInputSerializer(0, this.userCodeClassLoader);
 		this.inputTypeSerializer = serializerFactory.getSerializer();
 		
-		// create reader
-		if (serializerFactory.getDataType().equals(PactRecord.class)) {
-			@SuppressWarnings("unchecked")
-			MutableObjectIterator<IT> it = (MutableObjectIterator<IT>) new PactRecordNepheleReaderIterator(new MutableRecordReader<PactRecord>(this)); 
-			this.reader = it;
+		if (this.inputTypeSerializer.getClass() == PactRecordSerializer.class) {
+			// pact record specific deserialization
+			MutableReader<PactRecord> reader = (MutableReader<PactRecord>) inputReader;
+			this.reader = (MutableObjectIterator<IT>)new PactRecordNepheleReaderIterator(reader);
 		} else {
-			this.reader = new NepheleReaderIterator<IT>(new MutableRecordReader<DeserializationDelegate<IT>>(this), this.inputTypeSerializer);
+			// generic data type serialization
+			MutableReader<DeserializationDelegate<?>> reader = (MutableReader<DeserializationDelegate<?>>) inputReader;
+			@SuppressWarnings({ "rawtypes" })
+			final MutableObjectIterator<?> iter = new NepheleReaderIterator(reader, this.inputTypeSerializer);
+			this.reader = (MutableObjectIterator<IT>)iter;
+		}
+		
+		// final sanity check
+		if (numGates != this.config.getNumInputs()) {
+			throw new Exception("Illegal configuration: Number of input gates and group sizes are not consistent.");
 		}
 	}
 	
@@ -341,8 +435,7 @@ public class DataSinkTask<IT> extends AbstractOutputTask
 		}
 		catch (IOException e) {
 			LOG.error("Could not access the file system to detemine the status of the output.", e);
-			// any other kind of I/O exception: we assume only a degree of one here
-			return 1;
+			throw new RuntimeException("I/O Error while accessing file", e);
 		}
 	}
 

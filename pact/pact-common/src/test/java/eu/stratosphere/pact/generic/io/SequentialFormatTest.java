@@ -23,9 +23,11 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+import org.apache.log4j.Level;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,17 +41,14 @@ import eu.stratosphere.pact.common.io.statistics.BaseStatistics;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactInteger;
 import eu.stratosphere.pact.common.type.base.PactString;
+import eu.stratosphere.pact.common.util.LogUtils;
 
 /**
  * Tests {@link SequentialInputFormat} and {@link SequentialOutputFormat}.
- * 
- * @author Arvid Heise
  */
 @RunWith(Parameterized.class)
 public class SequentialFormatTest {
-	/**
-	 * @author Arvid Heise
-	 */
+
 	public class InputSplitSorter implements Comparator<FileInputSplit> {
 		/*
 		 * (non-Javadoc)
@@ -74,6 +73,11 @@ public class SequentialFormatTest {
 
 	private File tempFile;
 
+	@BeforeClass
+	public static void initialize() {
+		LogUtils.initializeDefaultConsoleLogger(Level.WARN);
+	}
+	
 	/**
 	 * Initializes SequentialFormatTest.
 	 */
@@ -185,7 +189,7 @@ public class SequentialFormatTest {
 		configuration.setLong(BinaryOutputFormat.BLOCK_SIZE_PARAMETER_KEY, this.blockSize);
 		if (this.degreeOfParallelism == 1) {
 			SequentialOutputFormat output =
-				FormatUtil.openOutput(SequentialOutputFormat.class, "file://" + this.tempFile.getAbsolutePath(),
+				FormatUtil.openOutput(SequentialOutputFormat.class, this.tempFile.toURI().toString(),
 					configuration);
 			for (int index = 0; index < this.numberOfTuples; index++)
 				output.writeRecord(this.getRecord(index));
@@ -196,7 +200,7 @@ public class SequentialFormatTest {
 			int recordIndex = 0;
 			for (int fileIndex = 0; fileIndex < this.degreeOfParallelism; fileIndex++) {
 				SequentialOutputFormat output =
-					FormatUtil.openOutput(SequentialOutputFormat.class, "file://" + this.tempFile.getAbsolutePath() +
+					FormatUtil.openOutput(SequentialOutputFormat.class, this.tempFile.toURI() +
 						"/"
 						+ (fileIndex + 1), configuration);
 				for (int fileCount = 0; fileCount < this.getNumberOfTuplesPerFile(fileIndex); fileCount++, recordIndex++)
@@ -228,10 +232,11 @@ public class SequentialFormatTest {
 
 	protected SequentialInputFormat<PactRecord> createInputFormat() {
 		Configuration configuration = new Configuration();
-		configuration.setString(FileInputFormat.FILE_PARAMETER_KEY, "file://" + this.tempFile.getAbsolutePath());
 		configuration.setLong(BinaryInputFormat.BLOCK_SIZE_PARAMETER_KEY, this.blockSize);
 
 		final SequentialInputFormat<PactRecord> inputFormat = new SequentialInputFormat<PactRecord>();
+		inputFormat.setFilePath(this.tempFile.toURI().toString());
+		
 		inputFormat.configure(configuration);
 		return inputFormat;
 	}

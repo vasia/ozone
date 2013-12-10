@@ -16,6 +16,7 @@
 package eu.stratosphere.pact.compiler.plan;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -519,6 +520,7 @@ public abstract class TwoInputNode extends OptimizerNode {
 					ilp2.parameterizeChannel(in2);
 				}
 				
+				allPossibleLoop:
 				for (OperatorDescriptorDual dps: this.possibleProperties) {
 					for (LocalPropertiesPair lpp : dps.getPossibleLocalProperties()) {
 						if (lpp.getProperties1().isMetBy(in1.getLocalProperties()) &&
@@ -527,11 +529,12 @@ public abstract class TwoInputNode extends OptimizerNode {
 							// valid combination
 							// for non trivial local properties, we need to check that they are co compatible
 							// (such as when some sort order is requested, that both are the same sort order
-							if (RequestedLocalProperties.doCoFulfill(lpp.getProperties1(), lpp.getProperties2(), 
+							if (dps.areCoFulfilled(lpp.getProperties1(), lpp.getProperties2(), 
 								in1.getLocalProperties(), in2.getLocalProperties()))
 							{
 								// all right, co compatible
 								instantiate(dps, in1, in2, target, estimator, rgps1, rgps2, ilp1, ilp2);
+								break allPossibleLoop;
 							} else {
 								// meet, but not co-compatible
 								throw new CompilerException("Implements to adjust one side to the other!");
@@ -654,7 +657,9 @@ public abstract class TwoInputNode extends OptimizerNode {
 		List<UnclosedBranchDescriptor> result1 = getFirstPredecessorNode().getBranchesForParent(getFirstIncomingConnection());
 		List<UnclosedBranchDescriptor> result2 = getSecondPredecessorNode().getBranchesForParent(getSecondIncomingConnection());
 
-		this.openBranches = mergeLists(result1, result2);
+		ArrayList<UnclosedBranchDescriptor> result = new ArrayList<UnclosedBranchDescriptor>();
+		mergeLists(result1, result2, result);
+		this.openBranches = result.isEmpty() ? Collections.<UnclosedBranchDescriptor>emptyList() : result;
 	}
 
 	// --------------------------------------------------------------------------------------------

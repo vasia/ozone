@@ -20,23 +20,22 @@ bin=`cd "$bin"; pwd`
 . "$bin"/nephele-config.sh
 
 if [ "$NEPHELE_IDENT_STRING" = "" ]; then
-	NEPHELE_IDENT_STRING="$USER"
+    NEPHELE_IDENT_STRING="$USER"
 fi
-
 
 # auxilliary function to construct a lightweight classpath for the
 # Nephele visualization component
 constructVisualizationClassPath() {
 
-	for jarfile in $NEPHELE_LIB_DIR/*.jar ; do
-		if [[ $NEPHELE_VS_CLASSPATH = "" ]]; then
-			NEPHELE_VS_CLASSPATH=$jarfile;
-		else
-			NEPHELE_VS_CLASSPATH=$NEPHELE_VS_CLASSPATH:$jarfile
-		fi
-	done
+    for jarfile in $NEPHELE_LIB_DIR/*.jar ; do
+        if [[ $NEPHELE_VS_CLASSPATH = "" ]]; then
+            NEPHELE_VS_CLASSPATH=$jarfile;
+        else
+            NEPHELE_VS_CLASSPATH=$NEPHELE_VS_CLASSPATH:$jarfile
+        fi
+    done
 
-	echo $NEPHELE_VS_CLASSPATH
+    echo $NEPHELE_VS_CLASSPATH
 }
 
 log=$NEPHELE_LOG_DIR/nephele-$NEPHELE_IDENT_STRING-visualization-$HOSTNAME.log
@@ -44,5 +43,4 @@ log_setting="-Dlog.file="$log" -Dlog4j.configuration=file://"$NEPHELE_CONF_DIR"/
 
 NEPHELE_VS_CLASSPATH=$(constructVisualizationClassPath)
 
-
-$JAVA_HOME/bin/java $JVM_ARGS $NEPHELE_OPTS $log_setting -classpath $NEPHELE_VS_CLASSPATH eu.stratosphere.nephele.visualization.swt.SWTVisualization -configDir $NEPHELE_CONF_DIR
+$JAVA_RUN $JVM_ARGS $NEPHELE_OPTS $log_setting -classpath $NEPHELE_VS_CLASSPATH eu.stratosphere.nephele.visualization.swt.SWTVisualization -configDir $NEPHELE_CONF_DIR

@@ -44,12 +44,55 @@ import eu.stratosphere.pact.compiler.util.DummyMatchStub;
 import eu.stratosphere.pact.compiler.util.DummyOutputFormat;
 import eu.stratosphere.pact.compiler.util.IdentityMap;
 import eu.stratosphere.pact.compiler.util.IdentityReduce;
+import eu.stratosphere.pact.generic.contract.BulkIteration;
 
 /**
  */
 public class BranchingPlansCompilerTest extends CompilerTestBase {
 	
 	
+	@Test
+	public void testCostComputationWithMultipleDataSinks() {
+		final int SINKS = 5;
+	
+		try {
+			List<GenericDataSink> sinks = new ArrayList<GenericDataSink>();
+	
+			// construct the plan
+			final String out1Path = "file:///test/1";
+			final String out2Path = "file:///test/2";
+	
+			FileDataSource sourceA = new FileDataSource(DummyInputFormat.class, IN_FILE);
+	
+			MapContract mapA = MapContract.builder(IdentityMap.class).input(sourceA).name("Map A").build();
+			MapContract mapC = MapContract.builder(IdentityMap.class).input(mapA).name("Map C").build();
+	
+			FileDataSink[] sinkA = new FileDataSink[SINKS];
+			FileDataSink[] sinkB = new FileDataSink[SINKS];
+			for (int sink = 0; sink < SINKS; sink++) {
+				sinkA[sink] = new FileDataSink(DummyOutputFormat.class, out1Path, mapA, "Sink A:" + sink);
+				sinks.add(sinkA[sink]);
+	
+				sinkB[sink] = new FileDataSink(DummyOutputFormat.class, out2Path, mapC, "Sink B:" + sink);
+				sinks.add(sinkB[sink]);
+			}
+	
+			// return the PACT plan
+			Plan plan = new Plan(sinks, "Plans With Multiple Data Sinks");
+	
+			OptimizedPlan oPlan = compileNoStats(plan);
+	
+			// ---------- compile plan to nephele job graph to verify that no error is thrown ----------
+	
+			NepheleJobGraphGenerator jobGen = new NepheleJobGraphGenerator();
+			jobGen.compileJobGraph(oPlan);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Assert.fail(e.getMessage());
+		}
+	}
+
+
 	/**
 	 * 
 	 * <pre>
@@ -448,6 +491,174 @@ public class BranchingPlansCompilerTest extends CompilerTestBase {
 			//Compile plan to verify that no error is thrown
 			jobGen.compileJobGraph(oPlan);
 		} catch (Exception e) {
+			e.printStackTrace();
+			Assert.fail(e.getMessage());
+		}
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 *             (SRC A)     
+	 *             /     \      
+	 *        (SINK A)    (SINK B)
+	 * </pre>
+	 */
+	@Test
+	public void testBranchingWithMultipleDataSinksSmall() {
+		try {
+			// construct the plan
+			final String out1Path = "file:///test/1";
+			final String out2Path = "file:///test/2";
+	
+			FileDataSource sourceA = new FileDataSource(DummyInputFormat.class, IN_FILE);
+			
+			FileDataSink sinkA = new FileDataSink(DummyOutputFormat.class, out1Path, sourceA);
+			FileDataSink sinkB = new FileDataSink(DummyOutputFormat.class, out2Path, sourceA);
+			
+			List<GenericDataSink> sinks = new ArrayList<GenericDataSink>();
+			sinks.add(sinkA);
+			sinks.add(sinkB);
+			
+			// return the PACT plan
+			Plan plan = new Plan(sinks, "Plans With Multiple Data Sinks");
+			
+			OptimizedPlan oPlan = compileNoStats(plan);
+			
+			// ---------- check the optimizer plan ----------
+			
+			// number of sinks
+			Assert.assertEquals("Wrong number of data sinks.", 2, oPlan.getDataSinks().size());
+			
+			// sinks contain all sink paths
+			Set<String> allSinks = new HashSet<String>();
+			allSinks.add(out1Path);
+			allSinks.add(out2Path);
+			
+			for (SinkPlanNode n : oPlan.getDataSinks()) {
+				String path = ((FileDataSink) n.getSinkNode().getPactContract()).getFilePath();
+				Assert.assertTrue("Invalid data sink.", allSinks.remove(path));
+			}
+			
+			// ---------- compile plan to nephele job graph to verify that no error is thrown ----------
+			
+			NepheleJobGraphGenerator jobGen = new NepheleJobGraphGenerator();
+			jobGen.compileJobGraph(oPlan);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Assert.fail(e.getMessage());
+		}
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 *           (SINK A)    (SINK B)
+	 *             /           /
+	 *         (SRC A)     (SRC B)
+	 * </pre>
+	 */
+	@Test
+	public void testSimpleDisjointPlan() {
+		// construct the plan
+		final String out1Path = "file:///test/1";
+		final String out2Path = "file:///test/2";
+
+		FileDataSource sourceA = new FileDataSource(DummyInputFormat.class, IN_FILE);
+		FileDataSource sourceB = new FileDataSource(DummyInputFormat.class, IN_FILE);
+		
+		FileDataSink sinkA = new FileDataSink(DummyOutputFormat.class, out1Path, sourceA);
+		FileDataSink sinkB = new FileDataSink(DummyOutputFormat.class, out2Path, sourceB);
+		
+		List<GenericDataSink> sinks = new ArrayList<GenericDataSink>();
+		sinks.add(sinkA);
+		sinks.add(sinkB);
+		
+		// return the PACT plan
+		Plan plan = new Plan(sinks, "Disjoint plan with multiple data sinks");
+		
+		try {
+			compileNoStats(plan);
+			Assert.fail("Plan must not be compilable, it contains disjoint sub-plans.");
+		}
+		catch (Exception ex) {
+			// as expected
+		}
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 *     (SINK 3) (SINK 1)   (SINK 2) (SINK 4)
+	 *         \     /             \     /
+	 *         (SRC A)             (SRC B)
+	 * </pre>
+	 * 
+	 * NOTE: this case is currently not caught by the compiler. we should enable the test once it is caught.
+	 */
+//	@Test (Deactivated for now because of unsupported feature)
+	public void testBranchingDisjointPlan() {
+		// construct the plan
+		final String out1Path = "file:///test/1";
+		final String out2Path = "file:///test/2";
+		final String out3Path = "file:///test/3";
+		final String out4Path = "file:///test/4";
+
+		FileDataSource sourceA = new FileDataSource(DummyInputFormat.class, IN_FILE);
+		FileDataSource sourceB = new FileDataSource(DummyInputFormat.class, IN_FILE);
+		
+		FileDataSink sink1 = new FileDataSink(DummyOutputFormat.class, out1Path, sourceA, "1");
+		FileDataSink sink2 = new FileDataSink(DummyOutputFormat.class, out2Path, sourceB, "2");
+		FileDataSink sink3 = new FileDataSink(DummyOutputFormat.class, out3Path, sourceA, "3");
+		FileDataSink sink4 = new FileDataSink(DummyOutputFormat.class, out4Path, sourceB, "4");
+		
+		
+		List<GenericDataSink> sinks = new ArrayList<GenericDataSink>();
+		sinks.add(sink1);
+		sinks.add(sink2);
+		sinks.add(sink3);
+		sinks.add(sink4);
+		
+		// return the PACT plan
+		Plan plan = new Plan(sinks, "Disjoint plan with multiple data sinks and branches");
+		
+		try {
+			compileNoStats(plan);
+			Assert.fail("Plan must not be compilable, it contains disjoint sub-plans.");
+		}
+		catch (Exception ex) {
+			// as expected
+		}
+	}
+	
+	@Test
+	public void testBranchAfterIteration() {
+		FileDataSource sourceA = new FileDataSource(DummyInputFormat.class, IN_FILE, "Source 2");
+		
+		BulkIteration iteration = new BulkIteration("Loop");
+		iteration.setInput(sourceA);
+		iteration.setMaximumNumberOfIterations(10);
+		
+		MapContract mapper = MapContract.builder(IdentityMap.class).name("Mapper").input(iteration.getPartialSolution()).build();
+		iteration.setNextPartialSolution(mapper);
+		
+		FileDataSink sink1 = new FileDataSink(DummyOutputFormat.class, OUT_FILE, iteration, "Sink 1");
+		
+		MapContract postMap = MapContract.builder(IdentityMap.class).name("Post Iteration Mapper")
+				.input(iteration).build();
+		
+		FileDataSink sink2 = new FileDataSink(DummyOutputFormat.class, OUT_FILE, postMap, "Sink 2");
+		
+		List<GenericDataSink> sinks = new ArrayList<GenericDataSink>();
+		sinks.add(sink1);
+		sinks.add(sink2);
+		
+		Plan plan = new Plan(sinks);
+		
+		try {
+			compileNoStats(plan);
+		}
+		catch (Exception e) {
 			e.printStackTrace();
 			Assert.fail(e.getMessage());
 		}

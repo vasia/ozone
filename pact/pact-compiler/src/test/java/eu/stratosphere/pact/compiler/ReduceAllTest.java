@@ -15,7 +15,7 @@
 
 package eu.stratosphere.pact.compiler;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
@@ -29,12 +29,11 @@ import eu.stratosphere.pact.compiler.util.DummyInputFormat;
 import eu.stratosphere.pact.compiler.util.DummyOutputFormat;
 import eu.stratosphere.pact.compiler.util.IdentityReduce;
 
-
 /**
  * This test case has been created to validate a bug that occurred when
  * the ReduceContract was used without a grouping key.
  */
-public class ReduceAllTest extends CompilerTestBase  {
+public class ReduceAllTest extends CompilerTestBase {
 
 	@Test
 	public void testReduce() {
@@ -43,7 +42,7 @@ public class ReduceAllTest extends CompilerTestBase  {
 		ReduceContract reduce1 = ReduceContract.builder(new IdentityReduce()).name("Reduce1").input(source).build();
 		FileDataSink sink = new FileDataSink(new DummyOutputFormat(), OUT_FILE, "Sink");
 		sink.setInput(reduce1);
-		Plan plan = new Plan(sink, "Test Temp Task");
+		Plan plan = new Plan(sink, "AllReduce Test");
 		plan.setDefaultParallelism(DEFAULT_PARALLELISM);
 		
 		

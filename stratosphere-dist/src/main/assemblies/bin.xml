@@ -25,18 +25,22 @@
 			<useTransitiveFiltering>true</useTransitiveFiltering>
 			
 			<excludes>
+				<exclude>eu.stratosphere:nephele-examples</exclude>
+				<exclude>eu.stratosphere:pact-examples</exclude>
+				<exclude>eu.stratosphere:pact-scala-examples</exclude>
 				<!--
-				<exclude>**/*examples*.jar</exclude>
 				<exclude>**/*javadoc*</exclude>
 				<exclude>**/*sources*</exclude>
 				-->
-<!-- 				<exclude>eu.stratosphere:pact-clients:**</exclude> -->
+				<!--
+				<exclude>eu.stratosphere:pact-clients:**</exclude> 
+				-->
 				<!--
 				  This is a hardcoded exclude-list containing all libraries that are exclusively used in pact-clients.
           The previous command did not work because it also excludes libraries that should be in lib, such as commons-io.
 				-->
-        <exclude>commons-fileupload:commons-fileupload</exclude>
-        <exclude>org.eclipse.jetty:jetty-*</exclude>
+			        <exclude>commons-fileupload:commons-fileupload</exclude>
+        <!-- <exclude>org.eclipse.jetty:jetty-*</exclude>-->
 			</excludes>
 		</dependencySet>
 		
@@ -80,29 +84,33 @@
 
 		<fileSet>
 			<!-- create an empty log directory -->
-			<directory>src/main/stratosphere-bin/docs</directory>
+			<directory>src/main/stratosphere-bin/</directory>
 			<outputDirectory>log</outputDirectory>
 			<fileMode>0644</fileMode>
 			<excludes>
-				<exclude>*</exclude>
+				<exclude>**/*</exclude>
 			</excludes>
 		</fileSet>
 
 		<fileSet>
 			<!-- create an empty dropin-lib directory -->
-			<directory>src/main/stratosphere-bin/docs</directory>
+			<directory>src/main/stratosphere-bin/</directory>
 			<outputDirectory>lib/dropin</outputDirectory>
 			<fileMode>0644</fileMode>
 			<excludes>
-				<exclude>*</exclude>
+				<exclude>**/*</exclude>
 			</excludes>
 		</fileSet>
 
 		<fileSet>
-			<!-- copy README file -->
-			<directory>src/main/stratosphere-bin/docs</directory>
-			<outputDirectory>docs</outputDirectory>
+			<!-- copy *.txt files -->
+			<directory>src/main/stratosphere-bin/</directory>
+			<outputDirectory></outputDirectory>
 			<fileMode>0644</fileMode>
+			<includes>
+				<include>*.txt</include>
+				<include>*.properties</include>
+			</includes>
 		</fileSet>
 
 		<fileSet>
@@ -125,6 +133,16 @@
 				<exclude>*etc/users</exclude>
 			</excludes>
 		</fileSet>
+		
+		<fileSet>
+			<!-- copy files for Jobmanager web frontend -->
+			<directory>../nephele/nephele-server/resources</directory>
+			<outputDirectory>resources</outputDirectory>
+			<fileMode>0644</fileMode>
+			<excludes>
+				<exclude>*etc/users</exclude>
+			</excludes>
+		</fileSet>
 
 		<fileSet>
 			<!-- copy jar files of pact job examples -->
@@ -136,6 +154,19 @@
 			</includes>
 			<excludes>
 				<exclude>pact-examples-${project.version}.jar</exclude>
+			</excludes>
+		</fileSet>
+
+		<fileSet>
+			<!-- copy jar files of pact job examples -->
+			<directory>../pact-scala/pact-scala-examples/target</directory>
+			<outputDirectory>examples/pact-scala/</outputDirectory>
+			<fileMode>0644</fileMode>
+			<includes>
+				<include>*.jar</include>
+			</includes>
+			<excludes>
+				<exclude>pact-scala-examples-${project.version}.jar</exclude>
 			</excludes>
 		</fileSet>
 	</fileSets>

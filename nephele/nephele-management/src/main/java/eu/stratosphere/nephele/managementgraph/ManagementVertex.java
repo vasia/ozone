@@ -25,6 +25,7 @@ import eu.stratosphere.nephele.execution.ExecutionState;
 import eu.stratosphere.nephele.io.IOReadableWritable;
 import eu.stratosphere.nephele.types.StringRecord;
 import eu.stratosphere.nephele.util.EnumUtils;
+import eu.stratosphere.nephele.util.StringUtils;
 
 /**
  * This class implements a management vertex of a {@link ManagementGraph}. A management vertex is derived from the type
@@ -331,4 +332,21 @@ public final class ManagementVertex extends ManagementAttachment implements IORe
 	public String toString() {
 		return String.format("%s_%d", getGroupVertex().getName(), indexInGroup);
 	}
-}
+	
+	/**
+	 * Returns Json representation of this ManagementVertex
+	 * 
+	 * @return
+	 */
+	public String toJson() {
+		StringBuilder json = new StringBuilder("");
+		json.append("{");
+		json.append("\"vertexid\": \"" + this.getID() + "\",");
+		json.append("\"vertexname\": \"" + StringUtils.escapeHtml(this.toString()) + "\",");
+		json.append("\"vertexstatus\": \"" + this.getExecutionState() + "\",");
+		json.append("\"vertexinstancename\": \"" + this.getInstanceName() + "\",");
+		json.append("\"vertexinstancetype\": \"" + this.getInstanceType() + "\"");
+		json.append("}");
+		return json.toString();
+	}
+} 

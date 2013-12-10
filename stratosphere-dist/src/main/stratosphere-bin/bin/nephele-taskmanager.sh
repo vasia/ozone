@@ -21,88 +21,28 @@ bin=`cd "$bin"; pwd`
 
 . "$bin"/nephele-config.sh
 
-if [ "$NEPHELE_PID_DIR" = "" ]; then
-	NEPHELE_PID_DIR=/tmp
-fi
-
 if [ "$NEPHELE_IDENT_STRING" = "" ]; then
-	NEPHELE_IDENT_STRING="$USER"
+    NEPHELE_IDENT_STRING="$USER"
 fi
 
 # auxilliary function to construct a lightweight classpath for the
 # Nephele TaskManager
 constructTaskManagerClassPath() {
 
-	for jarfile in $NEPHELE_LIB_DIR/*.jar ; do
-<<<<<<< HEAD
-		if [[ $NEPHELE_TM_CLASSPATH = "" ]]; then
-			NEPHELE_TM_CLASSPATH=$jarfile;
-		else
-			NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$jarfile
-=======
+    for jarfile in $NEPHELE_LIB_DIR/*.jar ; do
+        if [[ $NEPHELE_TM_CLASSPATH = "" ]]; then
+            NEPHELE_TM_CLASSPATH=$jarfile;
+        else
+            NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$jarfile
+        fi
+    done
 
-		add=0
+    for jarfile in $NEPHELE_LIB_DIR/dropin/*.jar ; do
+        NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$jarfile
+    done
+    NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$NEPHELE_LIB_DIR/dropin/
 
-		if [[ "$jarfile" =~ 'nephele-server' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-common' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-management' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-hdfs' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-s3' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-profiling' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-queuescheduler' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'nephele-clustermanager' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-common' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-array-datamodel' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-incremental' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'pact-runtime' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-cli' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-logging' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-codec' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-configuration' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'commons-lang' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'log4j' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'hadoop-core' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'aws-java-sdk' ]]; then
-			add=1
-		elif [[ "$jarfile" =~ 'guava' ]]; then
-			add=1
-		fi
-
-		if [[ "$add" = "1" ]]; then
-			if [[ $NEPHELE_TM_CLASSPATH = "" ]]; then
-				NEPHELE_TM_CLASSPATH=$jarfile;
-			else
-				NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$jarfile
-			fi
->>>>>>> incremental_iterations
-		fi
-	done
-
-	for jarfile in $NEPHELE_LIB_DIR/dropin/*.jar ; do
-		NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$jarfile
-	done
-	NEPHELE_TM_CLASSPATH=$NEPHELE_TM_CLASSPATH:$NEPHELE_LIB_DIR/dropin/
-
-	echo $NEPHELE_TM_CLASSPATH
+    echo $NEPHELE_TM_CLASSPATH
 }
 
 NEPHELE_TM_CLASSPATH=`manglePathList $(constructTaskManagerClassPath)`
@@ -116,39 +56,39 @@ JVM_ARGS="$JVM_ARGS -XX:+UseParNewGC -XX:NewRatio=8 -XX:PretenureSizeThreshold=6
 
 case $STARTSTOP in
 
-	(start)
-		mkdir -p "$NEPHELE_PID_DIR"
-		if [ -f $pid ]; then
-			if kill -0 `cat $pid` > /dev/null 2>&1; then
-				echo Nephele task manager running as process `cat $pid` on host $HOSTNAME.  Stop it first.
-				exit 1
-     			fi
-		fi
+    (start)
+        mkdir -p "$NEPHELE_PID_DIR"
+        if [ -f $pid ]; then
+            if kill -0 `cat $pid` > /dev/null 2>&1; then
+                echo Nephele task manager running as process `cat $pid` on host $HOSTNAME.  Stop it first.
+                exit 1
+            fi
+        fi
 
-                # Rotate log files
-                rotateLogFile $log
-                rotateLogFile $out
+        # Rotate log files
+        rotateLogFile $log
+        rotateLogFile $out
 
-		echo Starting Nephele task manager on host $HOSTNAME
-		$JAVA_RUN $JVM_ARGS $NEPHELE_OPTS $log_setting -classpath $NEPHELE_TM_CLASSPATH eu.stratosphere.nephele.taskmanager.TaskManager -configDir $NEPHELE_CONF_DIR > "$out" 2>&1 < /dev/null &
-		echo $! > $pid
-	;;
+        echo Starting Nephele task manager on host $HOSTNAME
+        $JAVA_RUN $JVM_ARGS $NEPHELE_OPTS $log_setting -classpath $NEPHELE_TM_CLASSPATH eu.stratosphere.nephele.taskmanager.TaskManager -configDir $NEPHELE_CONF_DIR > "$out" 2>&1 < /dev/null &
+        echo $! > $pid
+    ;;
 
-	(stop)
-		if [ -f $pid ]; then
-			if kill -0 `cat $pid` > /dev/null 2>&1; then
-				echo Stopping Nephele task manager on host $HOSTNAME
-				kill `cat $pid`
-			else
-				echo No Nephele task manager to stop on host $HOSTNAME
-			fi
-		else
-			echo No Nephele task manager to stop on host $HOSTNAME
-		fi
-	;;
+    (stop)
+        if [ -f $pid ]; then
+            if kill -0 `cat $pid` > /dev/null 2>&1; then
+                echo Stopping Nephele task manager on host $HOSTNAME
+                kill `cat $pid`
+            else
+                echo No Nephele task manager to stop on host $HOSTNAME
+            fi
+        else
+            echo No Nephele task manager to stop on host $HOSTNAME
+        fi
+    ;;
 
-	(*)
-		echo Please specify start or stop
-	;;
+    (*)
+        echo Please specify start or stop
+    ;;
 
 esac

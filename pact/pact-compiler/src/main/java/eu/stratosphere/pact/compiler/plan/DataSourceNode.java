@@ -21,8 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.commons.lang.SerializationUtils;
-
+import eu.stratosphere.nephele.configuration.Configuration;
 import eu.stratosphere.pact.common.contract.CompilerHints;
 import eu.stratosphere.pact.common.contract.GenericDataSource;
 import eu.stratosphere.pact.common.io.FileInputFormat;
@@ -37,6 +36,7 @@ import eu.stratosphere.pact.compiler.plan.candidate.PlanNode;
 import eu.stratosphere.pact.compiler.plan.candidate.SourcePlanNode;
 import eu.stratosphere.pact.generic.contract.Contract;
 import eu.stratosphere.pact.generic.io.InputFormat;
+import eu.stratosphere.pact.generic.io.UnsplittableInput;
 
 /**
  * The optimizer's internal representation of a data source.
@@ -44,6 +44,8 @@ import eu.stratosphere.pact.generic.io.InputFormat;
 public class DataSourceNode extends OptimizerNode {
 	
 	private long inputSize;			//the size of the input in bytes
+	
+	private final boolean unsplittable;
 
 	/**
 	 * Creates a new DataSourceNode for the given contract.
@@ -53,6 +55,18 @@ public class DataSourceNode extends OptimizerNode {
 	 */
 	public DataSourceNode(GenericDataSource<?> pactContract) {
 		super(pactContract);
+		
+		if (pactContract.getUserCodeWrapper().getUserCodeClass() == null) {
+			throw new IllegalArgumentException("Input format has not been set.");
+		}
+		
+		if (UnsplittableInput.class.isAssignableFrom(pactContract.getUserCodeWrapper().getUserCodeClass())) {
+			setDegreeOfParallelism(1);
+			setSubtasksPerInstance(1);
+			this.unsplittable = true;
+		} else {
+			this.unsplittable = false;
+		}
 	}
 
 	/**
@@ -65,36 +79,39 @@ public class DataSourceNode extends OptimizerNode {
 		return (GenericDataSource<?>) super.getPactContract();
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#getName()
-	 */
 	@Override
 	public String getName() {
 		return "Data Source";
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#isMemoryConsumer()
-	 */
 	@Override
 	public boolean isMemoryConsumer() {
 		return false;
 	}
+	
 
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#getIncomingConnections()
-	 */
+	@Override
+	public void setDegreeOfParallelism(int degreeOfParallelism) {
+		// if unsplittable, DOP remains at 1
+		if (!this.unsplittable) {
+			super.setDegreeOfParallelism(degreeOfParallelism);
+		}
+	}
+	
+
+	@Override
+	public void setSubtasksPerInstance(int instancesPerMachine) {
+		// if unsplittable, DOP remains at 1
+		if (!this.unsplittable) {
+			super.setSubtasksPerInstance(instancesPerMachine);
+		}
+	}
+
 	@Override
 	public List<PactConnection> getIncomingConnections() {
 		return Collections.<PactConnection>emptyList();
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#setInputs(java.util.Map)
-	 */
 	@Override
 	public void setInputs(Map<Contract, OptimizerNode> contractToNode) {
 		// do nothing
@@ -122,7 +139,9 @@ public class DataSourceNode extends OptimizerNode {
 			
 			try {
 				format = getPactContract().getFormatWrapper().getUserCodeObject();
-				format.configure(getPactContract().getParameters());
+				Configuration config = getPactContract().getParameters();
+				config.setClassLoader(getPactContract().getClass().getClassLoader());
+				format.configure(config);
 			}
 			catch (Throwable t) {
 				if (PactCompiler.LOG.isWarnEnabled())
@@ -223,29 +242,17 @@ public class DataSourceNode extends OptimizerNode {
 		}
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#computeInterestingProperties()
-	 */
 	@Override
 	public void computeInterestingPropertiesForInputs(CostEstimator estimator) {
 		// no children, so nothing to compute
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#computeUnclosedBranchStack()
-	 */
 	@Override
 	public void computeUnclosedBranchStack() {
 		// because there are no inputs, there are no unclosed branches.
 		this.openBranches = Collections.emptyList();
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#computeAlternativePlans()
-	 */
 	@Override
 	public List<PlanNode> getAlternativePlans(CostEstimator estimator) {
 		if (this.cachedPlans != null) {

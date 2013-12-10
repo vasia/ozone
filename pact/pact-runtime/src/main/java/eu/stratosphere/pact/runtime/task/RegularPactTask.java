@@ -71,8 +71,6 @@ import eu.stratosphere.pact.runtime.task.util.CloseableInputProvider;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.pact.runtime.task.util.NepheleReaderIterator;
 import eu.stratosphere.pact.runtime.task.util.PactRecordNepheleReaderIterator;
-import eu.stratosphere.pact.runtime.task.util.ReaderInterruptionBehavior;
-import eu.stratosphere.pact.runtime.task.util.ReaderInterruptionBehaviors;
 import eu.stratosphere.pact.runtime.task.util.TaskConfig;
 import eu.stratosphere.pact.runtime.udf.RuntimeUDFContext;
 
@@ -200,8 +198,10 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 	//                                  Nephele Task Interface
 	// --------------------------------------------------------------------------------------------
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.nephele.template.AbstractInvokable#registerInputOutput()
+
+	/**
+	 * Initialization method. Runs in the execution graph setup phase in the JobManager
+	 * and as a setup method on the TaskManager.
 	 */
 	@Override
 	public void registerInputOutput() {
@@ -253,8 +253,9 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.nephele.template.AbstractInvokable#invoke()
+
+	/**
+	 * The main work method.
 	 */
 	@Override
 	public void invoke() throws Exception {
@@ -280,7 +281,7 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 			
 			if (!this.running) {
 				if (LOG.isDebugEnabled())
-					LOG.info(formatLogString("Task cancelled before PACT code was started."));
+					LOG.debug(formatLogString("Task cancelled before PACT code was started."));
 				return;
 			}
 			
@@ -318,8 +319,6 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 			// if the class is null, the driver has no user code 
 			if (userCodeFunctionType != null) {
 				this.stub = initStub(userCodeFunctionType);
-				this.stub.setRuntimeContext(getRuntimeContext(getEnvironment().getTaskName()));
-				
 			}
 		} catch (Exception e) {
 			throw new RuntimeException("Initializing the user code and the configuration failed" +
@@ -403,19 +402,19 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.nephele.template.AbstractInvokable#cancel()
-	 */
 	@Override
 	public void cancel() throws Exception {
 		this.running = false;
-		if (LOG.isWarnEnabled())
-			LOG.warn(formatLogString("Cancelling PACT code"));
 		
-		closeLocalStrategiesAndCaches();
+		if (LOG.isInfoEnabled())
+			LOG.info(formatLogString("Cancelling PACT code"));
 		
-		if (this.driver != null) {
-			this.driver.cancel();
+		try {
+			if (this.driver != null) {
+				this.driver.cancel();
+			}
+		} finally {
+			closeLocalStrategiesAndCaches();
 		}
 	}
 	
@@ -486,6 +485,7 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 				throw new RuntimeException("The class '" + stub.getClass().getName() + "' is not a subclass of '" + 
 						stubSuperClass.getName() + "' as is required.");
 			}
+			stub.setRuntimeContext(getRuntimeContext(getEnvironment().getTaskName()));
 			return stub;
 		}
 		catch (ClassCastException ccex) {
@@ -494,10 +494,11 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 	}
 	
 	/**
-	 * Creates the record readers for the number of inputs as defined by {@link #getNumberOfInputs()}.
+	 * Creates the record readers for the number of inputs as defined by {@link #getNumTaskInputs()}.
 	 *
 	 * This method requires that the task configuration, the driver, and the user-code class loader are set.
 	 */
+	@SuppressWarnings("unchecked")
 	protected void initInputReaders() throws Exception {
 		final int numInputs = getNumTaskInputs();
 		final MutableReader<?>[] inputReaders = new MutableReader[numInputs];
@@ -514,7 +515,6 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 				inputReaders[i] = new MutableRecordReader<Record>(this);
 			} else if (groupSize > 1){
 				// union case
-				@SuppressWarnings("unchecked")
 				MutableRecordReader<Record>[] readers = new MutableRecordReader[groupSize];
 				for (int j = 0; j < groupSize; ++j) {
 					readers[j] = new MutableRecordReader<Record>(this);
@@ -721,14 +721,13 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 				}
 				
 				// instantiate ourselves a combiner. we should not use the stub, because the sort and the
-				// subsequent reduce would otherwise share it multithreaded
+				// subsequent reduce would otherwise share it multi-threaded
 				final S localStub;
 				try {
 					final Class<S> userCodeFunctionType = this.driver.getStubType();
 					// if the class is null, the driver has no user code 
 					if (userCodeFunctionType != null && GenericReducer.class.isAssignableFrom(userCodeFunctionType)) {
 						localStub = initStub(userCodeFunctionType);
-						localStub.open(this.config.getStubParameters());
 					} else {
 						throw new IllegalStateException("Performing combining sort outside a reduce task!");
 					}
@@ -742,7 +741,9 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 					(GenericReducer) localStub, getMemoryManager(), getIOManager(), this.inputIterators[inputNum], 
 					this, this.inputSerializers[inputNum], getLocalStrategyComparator(inputNum),
 					this.config.getMemoryInput(inputNum), this.config.getFilehandlesInput(inputNum),
-					this.config.getSpillingThresholdInput(inputNum), false);
+					this.config.getSpillingThresholdInput(inputNum));
+				cSorter.setUdfConfiguration(this.config.getStubParameters());
+				
 				// set the input to null such that it will be lazily fetched from the input strategy
 				this.inputs[inputNum] = null;
 				this.localStrategies[inputNum] = cSorter;
@@ -771,30 +772,19 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 			// pact record specific deserialization
 			@SuppressWarnings("unchecked")
 			MutableReader<PactRecord> reader = (MutableReader<PactRecord>) inputReader;
-			return new PactRecordNepheleReaderIterator(reader, readerInterruptionBehavior(inputIndex));
+			return new PactRecordNepheleReaderIterator(reader);
 		} else {
 			// generic data type serialization
 			@SuppressWarnings("unchecked")
 			MutableReader<DeserializationDelegate<?>> reader = (MutableReader<DeserializationDelegate<?>>) inputReader;
 			@SuppressWarnings({ "unchecked", "rawtypes" })
-			final MutableObjectIterator<?> iter = new NepheleReaderIterator(reader, serializer,
-					readerInterruptionBehavior(inputIndex));
+			final MutableObjectIterator<?> iter = new NepheleReaderIterator(reader, serializer);
 			return iter;
 		}
 	}
 	
 	protected int getNumTaskInputs() {
 		return this.driver.getNumberOfInputs();
-	}
-	
-	/**
-	 * Gets the default behavior that readers should use on interrupts.
-	 * 
-	 * @param inputGateIndex
-	 * @return The default behavior that readers should use on interrupts.
-	 */
-	protected ReaderInterruptionBehavior readerInterruptionBehavior(int inputGateIndex) {
-		return ReaderInterruptionBehaviors.EXCEPTION_ON_INTERRUPT;
 	}
 	
 	public RuntimeContext getRuntimeContext(String taskName) {
@@ -1164,7 +1154,7 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 				// get the task first
 				final ChainedDriver<?, ?> ct;
 				try {
-					Class<? extends ChainedDriver<?, ?>> ctc = (Class<? extends ChainedDriver<?, ?>>) config.getChainedTask(i);
+					Class<? extends ChainedDriver<?, ?>> ctc = config.getChainedTask(i);
 					ct = ctc.newInstance();
 				}
 				catch (Exception ex) {
@@ -1180,7 +1170,7 @@ public class RegularPactTask<S extends Stub, OT> extends AbstractTask implements
 					previous = getOutputCollector(nepheleTask, chainedStubConf, cl, eventualOutputs, chainedStubConf.getNumOutputs());
 				}
 
-				ct.setup(chainedStubConf, taskName, nepheleTask, cl, previous);
+				ct.setup(chainedStubConf, taskName, previous, nepheleTask, cl);
 				chainedTasksTarget.add(0, ct);
 
 				previous = ct;

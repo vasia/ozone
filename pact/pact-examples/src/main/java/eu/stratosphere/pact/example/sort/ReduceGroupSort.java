@@ -33,26 +33,20 @@ import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.stubs.StubAnnotation.ConstantFieldsExcept;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactInteger;
-import eu.stratosphere.pact.common.type.base.parser.DecimalTextIntParser;
 
 /**
  * This job shows how to define ordered input for a Reduce contract.
  * The inputs for CoGroups can be (individually) ordered as well.  
- *  
- * @author Aljoscha Krettek
  */
 public class ReduceGroupSort implements PlanAssembler, PlanAssemblerDescription {
 	
 	/**
 	 * Increments the first field of the first record of the reduce group by 100 and emits it.
-	 * Then all remaining records of the group are emitted.
-	 * 
-	 * @author Aljoscha Krettek
-	 * @author Fabian Hueske
-	 *
+	 * Then all remaining records of the group are emitted.	 *
 	 */
 	@ConstantFieldsExcept(0)
 	public static class IdentityReducer extends ReduceStub implements Serializable {
+		
 		private static final long serialVersionUID = 1L;
 		
 		@Override
@@ -71,12 +65,9 @@ public class ReduceGroupSort implements PlanAssembler, PlanAssemblerDescription 
 				out.collect(records.next());
 			}
 		}
-
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
+
 	@Override
 	public Plan getPlan(String... args) {
 		
@@ -85,12 +76,9 @@ public class ReduceGroupSort implements PlanAssembler, PlanAssemblerDescription 
 		String dataInput = (args.length > 1 ? args[1] : "");
 		String output = (args.length > 2 ? args[2] : "");
 
-		FileDataSource input = new FileDataSource(new RecordInputFormat(), dataInput, "Input");
-		RecordInputFormat.configureRecordFormat(input)
-			.recordDelimiter('\n')
-			.fieldDelimiter(' ')
-			.field(DecimalTextIntParser.class, 0)
-			.field(DecimalTextIntParser.class, 1);
+		@SuppressWarnings("unchecked")
+		RecordInputFormat format = new RecordInputFormat(' ', PactInteger.class, PactInteger.class);
+		FileDataSource input = new FileDataSource(format, dataInput, "Input");
 		
 		// create the reduce contract and sets the key to the first field
 		ReduceContract sorter = ReduceContract.builder(new IdentityReducer(), PactInteger.class, 0)
@@ -113,12 +101,8 @@ public class ReduceGroupSort implements PlanAssembler, PlanAssemblerDescription 
 		return plan;
 	}
 
-	/**
-	 * {@inheritDoc}
-	 */
 	@Override
 	public String getDescription() {
 		return "Parameters: [numSubStasks] [input] [output]";
 	}
-
 }

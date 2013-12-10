@@ -23,16 +23,16 @@ import eu.stratosphere.pact.common.contract.FileDataSource
 import eu.stratosphere.nephele.configuration.Configuration
 import eu.stratosphere.pact.generic.io.FileInputFormat
 import eu.stratosphere.pact.generic.io.GenericInputFormat
-import eu.stratosphere.scala.operators.TextDataSourceFormat
+import eu.stratosphere.scala.operators.TextInputFormat
 
 object DataSource {
 
-  def apply[Out](url: String, format: DataSourceFormat[Out]): DataStream[Out] with OutputHintable[Out] = {
+  def apply[Out](url: String, format: ScalaInputFormat[Out]): DataSet[Out] with OutputHintable[Out] = {
     val uri = getUri(url)
     
     val ret = uri.getScheme match {
 
-      case "file" | "hdfs" => new FileDataSource(format.format.asInstanceOf[FileInputFormat[_]], uri.toString)
+      case "file" | "hdfs" => new FileDataSource(format.asInstanceOf[FileInputFormat[_]], uri.toString)
           with ScalaContract[Out] {
 
         override def getUDF = format.getUDF
@@ -40,7 +40,7 @@ object DataSource {
         override def persistConfiguration() = format.persistConfiguration(this.getParameters())
       }
 
-      case "ext" => new GenericDataSource[GenericInputFormat[_]](format.format.asInstanceOf[GenericInputFormat[_]], uri.toString)
+      case "ext" => new GenericDataSource[GenericInputFormat[_]](format.asInstanceOf[GenericInputFormat[_]], uri.toString)
           with ScalaContract[Out] {
 
         override def getUDF = format.getUDF
@@ -48,7 +48,7 @@ object DataSource {
       }
     }
     
-    new DataStream[Out](ret) with OutputHintable[Out] {}
+    new DataSet[Out](ret) with OutputHintable[Out] {}
   }
 
   private def getUri(url: String) = {
@@ -61,12 +61,13 @@ object DataSource {
 }
 
 
-abstract class DataSourceFormat[Out](val format: InputFormat[_, _], val udt: UDT[Out]) {
+trait ScalaInputFormat[Out] { this: InputFormat[_, _] =>
   def getUDF: UDF0[Out]
   def persistConfiguration(config: Configuration) = {}
+  def configure(config: Configuration)
 }
 
 // convenience text file to look good in word count example :D
 object TextFile {
-  def apply(url: String): DataStream[String] with OutputHintable[String] = DataSource(url, TextDataSourceFormat())
+  def apply(url: String): DataSet[String] with OutputHintable[String] = DataSource(url, TextInputFormat())
 }

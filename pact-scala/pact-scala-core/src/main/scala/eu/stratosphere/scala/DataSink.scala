@@ -24,11 +24,11 @@ import eu.stratosphere.pact.common.contract.GenericDataSink
 
 object DataSinkOperator {
 
-  def write[In](input: DataStream[In], url: String, format: DataSinkFormat[In]): ScalaSink[In] = {
+  def write[In](input: DataSet[In], url: String, format: ScalaOutputFormat[In]): ScalaSink[In] = {
     val uri = getUri(url)
 
     val ret = uri.getScheme match {
-      case "file" | "hdfs" => new FileDataSink(format.format.asInstanceOf[FileOutputFormat[_]], uri.toString, input.contract)
+      case "file" | "hdfs" => new FileDataSink(format.asInstanceOf[FileOutputFormat[_]], uri.toString, input.contract)
           with OneInputScalaContract[In, Nothing] {
 
         def getUDF = format.getUDF
@@ -49,7 +49,8 @@ object DataSinkOperator {
 
 class ScalaSink[In] private[scala] (private[scala] val sink: GenericDataSink)
 
-abstract class DataSinkFormat[In](val format: OutputFormat[_], val udt: UDT[In]) {
+trait ScalaOutputFormat[In] { this: OutputFormat[_] =>
   def getUDF: UDF1[In, Nothing]
   def persistConfiguration(config: Configuration) = {}
+  def configure(config: Configuration)
 }

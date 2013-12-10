@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import eu.stratosphere.pact.compiler.CompilerException;
 import eu.stratosphere.pact.compiler.DataStatistics;
 import eu.stratosphere.pact.compiler.operators.OperatorDescriptorDual;
 import eu.stratosphere.pact.compiler.operators.UtilSinkJoinOpDescriptor;
@@ -33,9 +34,7 @@ public class SinkJoiner extends TwoInputNode {
 	
 	public SinkJoiner(OptimizerNode input1, OptimizerNode input2) {
 		super(new NoContract());
-		
-		
-		
+
 		PactConnection conn1 = new PactConnection(input1, this, -1);
 		PactConnection conn2 = new PactConnection(input2, this, -1);
 		
@@ -46,25 +45,16 @@ public class SinkJoiner extends TwoInputNode {
 		setSubtasksPerInstance(1);
 	}
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#getName()
-	 */
 	@Override
 	public String getName() {
 		return "Internal Utility Node";
 	}
 	
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#getOutgoingConnections()
-	 */
+	@Override
 	public List<PactConnection> getOutgoingConnections() {
 		return Collections.emptyList();
 	}
 	
-	/*
-	 * (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#computeUnclosedBranchStack()
-	 */
 	@Override
 	public void computeUnclosedBranchStack() {
 		if (this.openBranches != null) {
@@ -74,25 +64,35 @@ public class SinkJoiner extends TwoInputNode {
 		addClosedBranches(getFirstPredecessorNode().closedBranchingNodes);
 		addClosedBranches(getSecondPredecessorNode().closedBranchingNodes);
 		
-		List<UnclosedBranchDescriptor> result1 = new ArrayList<UnclosedBranchDescriptor>();
-		List<UnclosedBranchDescriptor> result2 = new ArrayList<UnclosedBranchDescriptor>();
-		result1.addAll(getFirstPredecessorNode().openBranches);
-		result2.addAll(getSecondPredecessorNode().openBranches);
-
-		this.openBranches = mergeLists(result1, result2);
+		List<UnclosedBranchDescriptor> pred1branches = getFirstPredecessorNode().openBranches;
+		List<UnclosedBranchDescriptor> pred2branches = getSecondPredecessorNode().openBranches;
+		
+		// if the predecessors do not have branches, then we have multiple sinks that do not originate from
+		// a common data flow.
+		if (pred1branches == null || pred1branches.isEmpty() || pred2branches == null || pred2branches.isEmpty()) {
+			throw new CompilerException("The given Pact program contains multiple disconnected data flows.");
+		}
+		
+		// copy the lists and merge
+		List<UnclosedBranchDescriptor> result1 = new ArrayList<UnclosedBranchDescriptor>(pred1branches);
+		List<UnclosedBranchDescriptor> result2 = new ArrayList<UnclosedBranchDescriptor>(pred2branches);
+		
+		ArrayList<UnclosedBranchDescriptor> result = new ArrayList<UnclosedBranchDescriptor>();
+		mergeLists(result1, result2, result);
+		
+//		if (!didCloseSomeBranch) {
+//			// if the sink joiners do not close branches, then we have disjoint data flows.
+//			throw new CompilerException("The given Pact program contains multiple disconnected data flows.");
+//		}
+		
+		this.openBranches = result.isEmpty() ? Collections.<UnclosedBranchDescriptor>emptyList() : result;
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.TwoInputNode#getPossibleProperties()
-	 */
 	@Override
 	protected List<OperatorDescriptorDual> getPossibleProperties() {
 		return Collections.<OperatorDescriptorDual>singletonList(new UtilSinkJoinOpDescriptor());
 	}
 
-	/* (non-Javadoc)
-	 * @see eu.stratosphere.pact.compiler.plan.OptimizerNode#computeOutputEstimates(eu.stratosphere.pact.compiler.DataStatistics)
-	 */
 	@Override
 	public void computeOutputEstimates(DataStatistics statistics) {
 		// nothing to be done here
