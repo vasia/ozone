@@ -59,8 +59,8 @@ public class BulkIterationPlan extends Plan implements BulkIterationPlanner {
 	@Override
 	public void setUpDependenciesMatch(Class<? extends MatchStub> udf, Class<? extends Key> keyClass, int keyColumn1, int keyColumn2) {
 		dependencyMatch = MatchContract.builder(udf, keyClass, keyColumn1, keyColumn2)
-				.input1(iteration.getPartialSolution())
-				.input2(iteration.getDependencySet())
+				.input1(iteration.getDependencySet())
+				.input2(iteration.getPartialSolution())
 				.name("Join SolutionSet with Dependency Set")
 				.build();		
 	}

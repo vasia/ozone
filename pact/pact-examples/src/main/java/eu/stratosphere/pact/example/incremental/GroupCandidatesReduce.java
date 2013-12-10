@@ -10,6 +10,6 @@ public final class GroupCandidatesReduce extends ReduceStub {
 
 	@Override
 	public void reduce(Iterator<PactRecord> candidates, Collector<PactRecord> out) throws Exception {
-		out.collect(candidates.next());
+		if (candidates.hasNext()) out.collect(candidates.next());
 	}
 }

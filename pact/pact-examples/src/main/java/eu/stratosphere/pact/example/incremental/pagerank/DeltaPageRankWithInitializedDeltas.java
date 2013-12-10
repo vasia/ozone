@@ -17,7 +17,7 @@ import eu.stratosphere.pact.common.stubs.MapStub;
 import eu.stratosphere.pact.common.stubs.MatchStub;
 import eu.stratosphere.pact.common.stubs.ReduceStub;
 import eu.stratosphere.pact.common.stubs.StubAnnotation.ConstantFields;
-import eu.stratosphere.pact.common.stubs.StubAnnotation.ConstantFieldsFirst;
+import eu.stratosphere.pact.common.stubs.StubAnnotation.ConstantFieldsSecond;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactDouble;
 import eu.stratosphere.pact.common.type.base.PactLong;
@@ -25,7 +25,7 @@ import eu.stratosphere.pact.generic.contract.WorksetIteration;
 
 public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAssemblerDescription {
 
-	@ConstantFieldsFirst({0,1})
+	@ConstantFieldsSecond(0)
 	public static final class RankComparisonMatch extends MatchStub {
 		
 		private final PactDouble newRank = new PactDouble();
@@ -37,13 +37,13 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 			
 			newRank.setValue(deltaVal.getValue() + currentVal.getValue());
 			vertexWithOldRank.setField(1, newRank);
-			//vertexWithOldRank.setField(2, deltaVal);
+			vertexWithOldRank.setField(2, deltaVal);
 			
 			out.collect(vertexWithOldRank);
 		}
 	}
 	
-	@ConstantFields({0, 1})
+	@ConstantFields(0)
 	public static final class ProjectForWorkSetMapper extends MapStub {
 		
 		@Override

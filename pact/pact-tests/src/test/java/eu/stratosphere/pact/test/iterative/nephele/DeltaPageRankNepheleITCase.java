@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
  *
- * Copyright (C) 2010 by the Stratosphere project (http://stratosphere.eu)
+ * Copyright (C) 2012 by the Stratosphere project (http://stratosphere.eu)
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -12,16 +12,9 @@
  * specific language governing permissions and limitations under the License.
  *
  **********************************************************************************************************************/
-
 package eu.stratosphere.pact.test.iterative.nephele;
 
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.util.Collection;
-import java.util.Random;
-import java.util.regex.Pattern;
-
-import org.junit.Assert;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -39,16 +32,16 @@ import eu.stratosphere.pact.common.io.RecordInputFormat;
 import eu.stratosphere.pact.common.io.RecordOutputFormat;
 import eu.stratosphere.pact.common.stubs.Collector;
 import eu.stratosphere.pact.common.stubs.MapStub;
-import eu.stratosphere.pact.common.stubs.aggregators.DoubleSumAggregator;
+import eu.stratosphere.pact.common.stubs.aggregators.LongSumAggregator;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactDouble;
 import eu.stratosphere.pact.common.type.base.PactLong;
 import eu.stratosphere.pact.common.type.base.parser.DecimalTextDoubleParser;
 import eu.stratosphere.pact.common.type.base.parser.DecimalTextLongParser;
-import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.DeltasIdentityMapper;
+import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.ProjectForWorkSetMapper;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.RankComparisonMatch;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.UpdateRankReduceDelta;
-import eu.stratosphere.pact.example.incremental.pagerank.PRDependenciesComputationMatch;
+import eu.stratosphere.pact.example.incremental.pagerank.PRDependenciesComputationMatchDelta;
 import eu.stratosphere.pact.generic.contract.UserCodeClassWrapper;
 import eu.stratosphere.pact.generic.types.TypeComparatorFactory;
 import eu.stratosphere.pact.generic.types.TypePairComparatorFactory;
@@ -88,30 +81,29 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		solutionsetPath = createTempFile("solutionset.txt", getInitialSolutionSet());
 		edgesPath = createTempFile("edges.txt", getEdges());
 		deltasPath = createTempFile("deltas.txt", getInitialDeltas());
-		resultPath = getTempFilePath("results");
+		resultPath = getTempDirPath("results");
 	}
 
 	@Override
 	protected JobGraph getJobGraph() throws Exception {
 		int dop = config.getInteger("DeltaPageRank#NumSubtasks", 1);
 		int maxIterations = config.getInteger("DeltaPageRank#NumIterations", 1);
-		
 		return createDeltaPageRankJobGraph(solutionsetPath, edgesPath, deltasPath, resultPath, dop, maxIterations);
 	}
 	
 
 	@Override
 	protected void postSubmit() throws Exception {
-		for (BufferedReader reader : getResultReader(resultPath)) {
-			checkOddEvenResult(reader);
-		}
+//		for (BufferedReader reader : getResultReader(resultPath)) {
+//			checkOddEvenResult(reader);
+//		}
 	}
 
 	@Parameters
 	public static Collection<Object[]> getConfigurations() {
 		Configuration config1 = new Configuration();
-		config1.setInteger("DeltaPageRank#NumSubtasks", 4);
-		config1.setInteger("DeltaPageRank#NumIterations", 10);
+		config1.setInteger("DeltaPageRank#NumSubtasks", 1);
+		config1.setInteger("DeltaPageRank#NumIterations", 2);
 		return toParameterList(config1);
 	}
 	
@@ -141,8 +133,9 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		{
 			TaskConfig solutionsetInputConfig = new TaskConfig(solutionsetInput.getConfiguration());
 			Configuration solutionsetInputUserConfig = solutionsetInputConfig.getStubParameters();
-			solutionsetInputConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
+			solutionsetInputConfig.addOutputShipStrategy(ShipStrategyType.PARTITION_HASH);
 			solutionsetInputConfig.setOutputSerializer(serializer);
+			solutionsetInputConfig.setOutputComparator(comparator, 0);
 			
 			solutionsetInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
 			solutionsetInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
@@ -150,7 +143,9 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
 			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 1, DecimalTextDoubleParser.class);
 			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
-			solutionsetInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 2);
+			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 2, DecimalTextDoubleParser.class);
+			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 2, 2);
+			solutionsetInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);
 			
 		}
 
@@ -247,18 +242,19 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			
 			// the sync
 			headConfig.setIterationHeadIndexOfSyncOutput(2);
-			//TODO: what does this do?
+			// what does this do? It sets among the many outputs the head has (into step function, final results, and sync)
+			// the number of the gate to the sync task, which synchronizes the barrier across all heads. 
 			
 			// the driver 
 			headConfig.setDriver(BuildSecondCachedMatchDriver.class);
 			headConfig.setDriverStrategy(DriverStrategy.HYBRIDHASH_BUILD_SECOND);
-			headConfig.setStubWrapper(new UserCodeClassWrapper<PRDependenciesComputationMatch>(PRDependenciesComputationMatch.class));
+			headConfig.setStubWrapper(new UserCodeClassWrapper<PRDependenciesComputationMatchDelta>(PRDependenciesComputationMatchDelta.class));
 			headConfig.setDriverComparator(comparator, 0);
 			headConfig.setDriverComparator(comparator, 1);
 			headConfig.setDriverPairComparator(pairComparator);
 			headConfig.setMemoryDriver(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 			
-			headConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, DoubleSumAggregator.class);
+			headConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
 		}
 		
 		// --------------- the intermediate (reduce to sum deltas) ---------------
@@ -285,8 +281,9 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			intermediateConfig.setStubWrapper(new UserCodeClassWrapper<UpdateRankReduceDelta>(UpdateRankReduceDelta.class));
 		}
 		
-		// --------------- solutionset tail (solution set join) ---------------
-		JobTaskVertex solutionsetTail = JobGraphUtils.createTask(IterationTailPactTask.class, 
+		// --------------- solution set tail (solution set join) ---------------
+		// his is actually not a tail, as it has successors ;-)
+		JobTaskVertex solutionsetTail = JobGraphUtils.createTask(IterationIntermediatePactTask.class, 
 				"SolutionSetIterationTail", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
 		TaskConfig solutionsetTailConfig = new TaskConfig(solutionsetTail.getConfiguration());
 		{
@@ -308,17 +305,16 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			solutionsetTailConfig.setDriverStrategy(DriverStrategy.HYBRIDHASH_BUILD_SECOND);
 			solutionsetTailConfig.setStubWrapper(new UserCodeClassWrapper<RankComparisonMatch>(RankComparisonMatch.class));
 			solutionsetTailConfig.setSolutionSetSerializer(serializer);
+			solutionsetTailConfig.setIterationSolutionSetJoinNum(0);
 		}
 		
-		// --------------- deltas tail (identity mapper after the reducer update) ---------------
+		// --------------- deltas tail (identity mapper after the rank comparison) ---------------
 		JobTaskVertex deltasTail = JobGraphUtils.createTask(IterationTailPactTask.class, 
 				"DeltasIterationTail", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
 		TaskConfig deltasTailConfig = new TaskConfig(deltasTail.getConfiguration());
 		{
 			deltasTailConfig.setIterationId(ITERATION_ID); 
 			deltasTailConfig.setWorksetIteration();
-			
-			//TODO: create UpdateWorkset similar to UpdateSolutionSet?
 		
 			// inputs and driver
 			deltasTailConfig.addInputToGroup(0);
@@ -331,7 +327,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			// the driver
 			deltasTailConfig.setDriver(MapDriver.class);
 			deltasTailConfig.setDriverStrategy(DriverStrategy.MAP);
-			deltasTailConfig.setStubWrapper(new UserCodeClassWrapper<DeltasIdentityMapper>(DeltasIdentityMapper.class));
+			deltasTailConfig.setStubWrapper(new UserCodeClassWrapper<ProjectForWorkSetMapper>(ProjectForWorkSetMapper.class));
 		}
 		
 		// --------------- the output ---------------------
@@ -356,25 +352,28 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		}
 		
 		// --------------- the auxiliaries ---------------------
-		JobOutputVertex fakeTailOutput = JobGraphUtils.createFakeOutput(jobGraph, "FakeTailOutput",
-			degreeOfParallelism, numSubTasksPerInstance);
+		// you need this only when the solution set has a proper iteration tail (later in the proper setup we are going for)
+//		JobOutputVertex fakeTailOutput = JobGraphUtils.createFakeOutput(jobGraph, "FakeTailOutput",
+//			degreeOfParallelism, numSubTasksPerInstance);
 		
 		JobOutputVertex fakeWSTailOutput = JobGraphUtils.createFakeOutput(jobGraph, "FakeWSTailOutput",
 				degreeOfParallelism, numSubTasksPerInstance);
 
 
-		JobOutputVertex sync = JobGraphUtils.createSync(jobGraph,2*degreeOfParallelism);	//2*degreeofParallelism?
+		JobOutputVertex sync = JobGraphUtils.createSync(jobGraph, degreeOfParallelism);	//2*degreeofParallelism? only 1*DOP
 		TaskConfig syncConfig = new TaskConfig(sync.getConfiguration());
 		syncConfig.setNumberOfIterations(maxIterations);
 		syncConfig.setIterationId(ITERATION_ID);
-		syncConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, DoubleSumAggregator.class);
+		syncConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
 		syncConfig.setConvergenceCriterion(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, WorksetEmptyConvergenceCriterion.class);
 		
 		// --------------- the wiring ---------------------
 
-		JobGraphUtils.connect(solutionsetInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
-		JobGraphUtils.connect(edgeInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
+		// the order of the wiring matters (per task input), unfortunately... It must happen in the same order as the gates are used
+		// workset (deltas), edges, solution set
 		JobGraphUtils.connect(deltasInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
+		JobGraphUtils.connect(edgeInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
+		JobGraphUtils.connect(solutionsetInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
 
 		JobGraphUtils.connect(head, intermediate, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
 		intermediateConfig.setGateIterativeWithNumberOfEventsUntilInterrupt(0, degreeOfParallelism);
@@ -382,11 +381,10 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		JobGraphUtils.connect(intermediate, solutionsetTail, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
 		solutionsetTailConfig.setGateIterativeWithNumberOfEventsUntilInterrupt(0, 1);
 		
-		JobGraphUtils.connect(intermediate, deltasTail, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
+		JobGraphUtils.connect(solutionsetTail, deltasTail, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
 		deltasTailConfig.setGateIterativeWithNumberOfEventsUntilInterrupt(0, 1);
 
 		JobGraphUtils.connect(head, output, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
-		JobGraphUtils.connect(solutionsetTail, fakeTailOutput, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
 		JobGraphUtils.connect(deltasTail, fakeWSTailOutput, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
 		JobGraphUtils.connect(head, sync, ChannelType.NETWORK, DistributionPattern.POINTWISE);
 		
@@ -400,7 +398,6 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		
 		output.setVertexToShareInstancesWith(head);
 		sync.setVertexToShareInstancesWith(head);
-		fakeTailOutput.setVertexToShareInstancesWith(solutionsetTail);
 		fakeWSTailOutput.setVertexToShareInstancesWith(deltasTail);
 		
 		return jobGraph;
@@ -422,7 +419,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 	}
 	
 	private String getInitialSolutionSet() {
-		return "1 0.025\n2 0.125\n3 0.083\n4 0.083\n5 0.075\n6 0.075\n7 0.183\n8 0.150\n9 0.1";
+		return "1 0.025 0.0\n2 0.125 0.0\n3 0.083 0.0\n4 0.083 0.0\n5 0.075 0.0\n6 0.075 0.0\n7 0.183 0.0\n8 0.150 0.0\n9 0.1 0.0";
 	}
 	
 	private String getInitialDeltas() {
@@ -432,76 +429,6 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 	private String getEdges() {
 		return "1 2 2\n1 3 2\n2 3 3\n2 4 3\n3 1 4\n3 2 4\n4 2 2\n5 6 2\n6 5 2\n7 8 2\n7 9 2\n8 7 2\n" +
 	"8 9 2\n9 7 2\n9 8 2\n3 5 4\n3 6 4\n4 8 2\n2 7 3\n5 7 2\n6 4 2";
-	}
-	
-	/**
-	 * Creates random edges such that even numbered vertices are connected with even numbered vertices
-	 * and odd numbered vertices only with other odd numbered ones.
-	 * 
-	 * @param numEdges
-	 * @param numVertices
-	 * @param seed
-	 * @return
-	 */
-	public static final String getRandomOddEvenEdges(int numEdges, int numVertices, long seed) {
-		if (numVertices < 2 || numVertices > 1000000 || numEdges < numVertices || numEdges > 1000000)
-			throw new IllegalArgumentException();
-		
-		StringBuilder bld = new StringBuilder(5 * numEdges);
-		
-		// first create the linear edge sequence even -> even and odd -> odd to make sure they are
-		// all in the same component
-		for (int i = 3; i <= numVertices; i++) {
-			bld.append(i-2).append(' ').append(i).append('\n');
-		}
-		
-		numEdges -= numVertices - 2;
-		Random r = new Random(seed);
-		
-		for (int i = 1; i <= numEdges; i++) {
-			int evenOdd = r.nextBoolean() ? 1 : 0;
-			
-			int source = r.nextInt(numVertices) + 1;
-			if (source % 2 != evenOdd) {
-				source--;
-				if (source < 1) {
-					source = 2;
-				}
-			}
-			
-			int target = r.nextInt(numVertices) + 1;
-			if (target % 2 != evenOdd) {
-				target--;
-				if (target < 1) {
-					target = 2;
-				}
-			}
-			
-			bld.append(source).append(' ').append(target).append('\n');
-		}
-		return bld.toString();
-	}
-	
-	public static void checkOddEvenResult(BufferedReader result) throws IOException {
-		Pattern split = Pattern.compile(" ");
-		String line;
-		while ((line = result.readLine()) != null) {
-			String[] res = split.split(line);
-			Assert.assertEquals("Malfored result: Wrong number of tokens in line.", 2, res.length);
-			try {
-				int vertex = Integer.parseInt(res[0]);
-				int component = Integer.parseInt(res[1]);
-				
-				int should = vertex % 2;
-				if (should == 0) {
-					should = 2;
-				}
-				Assert.assertEquals("Vertex is in wrong component.", should, component);
-			}
-			catch (NumberFormatException e) {
-				Assert.fail("Malformed result.");
-			}
-		}
 	}
 	
 	public static final class IdDuplicator extends MapStub {

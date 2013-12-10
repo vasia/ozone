@@ -13,11 +13,11 @@ public class PRDependenciesComputationMatch extends MatchStub {
 	
 	/*
 	 * 
-	 * (vId, rank) x (srcId, trgId, weight) => (trgId, rank / weight)
+	 * (srcId, trgId, weight) x (vId, rank) => (trgId, rank / weight)
 	 * 
 	 */
 	@Override
-	public void match(PactRecord vertexWithRank, PactRecord edgeWithWeight, Collector<PactRecord> out) throws Exception {
+	public void match(PactRecord edgeWithWeight, PactRecord vertexWithRank, Collector<PactRecord> out) throws Exception {
 		
 		result.setField(0, edgeWithWeight.getField(1, PactLong.class));
 		final long outLinks = edgeWithWeight.getField(2, PactLong.class).getValue();
