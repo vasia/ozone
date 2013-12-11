@@ -100,14 +100,12 @@ public abstract class AbstractIterativePactTask<S extends Stub, OT> extends Regu
 
 		
 		// instantiate the solution set update, if this task is responsible
-		if (config.getUpdateSolutionSet()) {
-			if (config.getUpdateSolutionSetWithoutReprobe()) {
+		if (config.getIsSolutionSetUpdate()) {
+			if (config.getIsSolutionSetUpdateWithoutReprobe()) {
 				@SuppressWarnings("unchecked")
-				MutableHashTable<OT, ?> hashTable = (MutableHashTable<OT, ?>) SolutionsetBroker.instance().get(brokerKey);
-				this.output = new UpdateSolutionsetOutputCollector<OT>(this.output, hashTable, config.getIterationSolutionSetJoinNum());
-			} else {
-				throw new UnsupportedOperationException("Runtime currently supports only fast updates withpout reprobing.");
-			}
+				MutableHashTable<OT, ?> hashTable = (MutableHashTable<OT, ?>) SolutionSetBroker.instance().get(brokerKey);
+				this.output = new SolutionSetFastUpdateOutputCollector<OT>(this.output, hashTable, config.getIterationSolutionSetJoinNum());
+			} 
 		}
 
 		isWorksetIteration = config.getIsWorksetIteration();

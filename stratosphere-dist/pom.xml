@@ -90,7 +90,6 @@
 		<dependency>
 			<groupId>eu.stratosphere</groupId>
 			<artifactId>pact-incremental</artifactId>
-			<artifactId>pact-scala-core</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>

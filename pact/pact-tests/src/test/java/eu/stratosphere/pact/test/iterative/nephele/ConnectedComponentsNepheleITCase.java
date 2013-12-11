@@ -473,6 +473,7 @@ public abstract class ConnectedComponentsNepheleITCase extends TestBase2 {
                 tailConfig.setDriverStrategy(DriverStrategy.HYBRIDHASH_BUILD_SECOND);
                 tailConfig.setStubWrapper(new UserCodeClassWrapper<UpdateComponentIdMatch>(UpdateComponentIdMatch.class));
                 tailConfig.setSolutionSetSerializer(serializer);
+                tailConfig.setIterationSolutionSetJoinNum(0); 
             }
 
             // -- edges ------------------------------------------------------------------------------------------------
@@ -572,6 +573,7 @@ public abstract class ConnectedComponentsNepheleITCase extends TestBase2 {
                 ssJoinIntermediateConfig.setStubWrapper(
                         new UserCodeClassWrapper<UpdateComponentIdMatch>(UpdateComponentIdMatch.class));
                 ssJoinIntermediateConfig.setSolutionSetSerializer(serializer);
+                ssJoinIntermediateConfig.setIterationSolutionSetJoinNum(0);
             }
 
 
@@ -594,7 +596,7 @@ public abstract class ConnectedComponentsNepheleITCase extends TestBase2 {
                 // the driver
                 ssTailConfig.setDriver(MapDriver.class);
                 ssTailConfig.setDriverStrategy(DriverStrategy.MAP);
-                ssTailConfig.setStubWrapper(new UserCodeClassWrapper<DummyMapper>(DummyMapper.class));
+                ssTailConfig.setStubWrapper(new UserCodeClassWrapper<DummyMapper>(DummyMapper.class)); 
             }
 
             // -------------------------- ws tail --------------------------------
@@ -732,6 +734,7 @@ public abstract class ConnectedComponentsNepheleITCase extends TestBase2 {
                 wsUpdateConfig.setStubWrapper(new UserCodeClassWrapper<UpdateComponentIdMatch>(
                         UpdateComponentIdMatch.class));
                 wsUpdateConfig.setSolutionSetSerializer(serializer);
+                wsUpdateConfig.setIterationSolutionSetJoinNum(0);
             }
 
             // -------------------------- ss tail --------------------------------
@@ -861,6 +864,7 @@ public abstract class ConnectedComponentsNepheleITCase extends TestBase2 {
                 ssJoinIntermediateConfig.setStubWrapper(
                         new UserCodeClassWrapper<UpdateComponentIdMatch>(UpdateComponentIdMatch.class));
                 ssJoinIntermediateConfig.setSolutionSetSerializer(serializer);
+                ssJoinIntermediateConfig.setIterationSolutionSetJoinNum(0);
             }
 
             // -------------------------- ws tail --------------------------------

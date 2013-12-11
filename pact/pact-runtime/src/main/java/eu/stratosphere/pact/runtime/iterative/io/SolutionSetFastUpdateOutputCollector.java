@@ -35,6 +35,8 @@ public class SolutionSetFastUpdateOutputCollector<T> implements Collector<T> {
 
     private final Collector<T> delegate;
     private final MutableHashTable<T, ?> solutionSet;
+    private long numUpdatedElements;
+    private int joinNum;   
 
     public SolutionSetFastUpdateOutputCollector(MutableHashTable<T, ?> solutionSet) {
         this(solutionSet, null);
@@ -45,20 +47,31 @@ public class SolutionSetFastUpdateOutputCollector<T> implements Collector<T> {
         this.delegate = delegate;
     }
 
-    @Override
+    public SolutionSetFastUpdateOutputCollector(Collector<T> delegate, MutableHashTable<T, ?> solutionSet, int joinNum) {
+    	 this.delegate = delegate;
+         this.solutionSet = solutionSet;
+         numUpdatedElements = 0;
+         this.joinNum = joinNum;
+	}
+
+	@Override
     public void collect(T record) {
         try {
-            MutableHashTable.HashBucketIterator<T, ?> bucket = solutionSet.getBuildSideIterator();
+            MutableHashTable.HashBucketIterator<T, ?> bucket = solutionSet.getBuildSideIterator(joinNum);
             bucket.writeBack(record);
-
-            if (delegate != null) {
-                delegate.collect(record);
-            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        delegate.collect(record);
+        numUpdatedElements++;
     }
 
+	public long getNumUpdatedElementsAndReset() {
+        long numUpdatedElementsToReturn = numUpdatedElements;
+        numUpdatedElements = 0;
+        return numUpdatedElementsToReturn;
+	}
+	
     @Override
     public void close() {
         if (delegate != null) {

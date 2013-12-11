@@ -137,7 +137,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			solutionsetInputConfig.setOutputSerializer(serializer);
 			solutionsetInputConfig.setOutputComparator(comparator, 0);
 			
-			solutionsetInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
+		/*	solutionsetInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
 			solutionsetInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
 			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 0, DecimalTextLongParser.class);
 			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
@@ -145,7 +145,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
 			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 2, DecimalTextDoubleParser.class);
 			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 2, 2);
-			solutionsetInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);
+			solutionsetInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);*/
 			
 		}
 
@@ -159,7 +159,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			edgesInputConfig.setOutputComparator(comparator, 0);
 			
 			Configuration edgesInputUserConfig = edgesInputConfig.getStubParameters();
-			edgesInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
+	/*		edgesInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
 			edgesInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
 			edgesInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 0, DecimalTextLongParser.class);
 			edgesInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
@@ -167,7 +167,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			edgesInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
 			edgesInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 2, DecimalTextLongParser.class);
 			edgesInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 2, 2);
-			edgesInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);
+			edgesInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);	*/
 		}
 		
 		// initial deltas
@@ -179,13 +179,13 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			deltasInputConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
 			deltasInputConfig.setOutputSerializer(serializer);
 					
-			deltasInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
+/*			deltasInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
 			deltasInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
 			deltasInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 0, DecimalTextLongParser.class);
 			deltasInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
 			deltasInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 1, DecimalTextDoubleParser.class);
 			deltasInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
-			deltasInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 2);
+			deltasInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 2);	*/
 					
 		}
 		
@@ -225,7 +225,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			headConfig.setSolutionSetPairComparator(pairComparator);
 			
 			// back channel / iterations
-			headConfig.setWorksetIteration();
+		//	headConfig.setWorksetIteration();
 			headConfig.setBackChannelMemory(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 			headConfig.setSolutionSetMemory(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 			
@@ -289,8 +289,8 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		{
 			solutionsetTailConfig.setIterationId(ITERATION_ID);
 			//solutionsetTailConfig.setWorksetIteration();
-			solutionsetTailConfig.setUpdateSolutionSet();
-			solutionsetTailConfig.setUpdateSolutionSetWithoutReprobe();
+	//		solutionsetTailConfig.setUpdateSolutionSet();
+	//		solutionsetTailConfig.setUpdateSolutionSetWithoutReprobe();
 		
 			// inputs and driver
 			solutionsetTailConfig.addInputToGroup(0);
@@ -314,7 +314,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		TaskConfig deltasTailConfig = new TaskConfig(deltasTail.getConfiguration());
 		{
 			deltasTailConfig.setIterationId(ITERATION_ID); 
-			deltasTailConfig.setWorksetIteration();
+	//		deltasTailConfig.setWorksetIteration();
 		
 			// inputs and driver
 			deltasTailConfig.addInputToGroup(0);
