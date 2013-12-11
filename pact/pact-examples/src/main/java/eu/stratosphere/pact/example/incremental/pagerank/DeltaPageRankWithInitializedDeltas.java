@@ -37,7 +37,6 @@ public class DeltaPageRankWithInitializedDeltas implements PlanAssembler, PlanAs
 			
 			newRank.setValue(deltaVal.getValue() + currentVal.getValue());
 			vertexWithOldRank.setField(1, newRank);
-			vertexWithOldRank.setField(2, deltaVal);
 			
 			out.collect(vertexWithOldRank);
 		}

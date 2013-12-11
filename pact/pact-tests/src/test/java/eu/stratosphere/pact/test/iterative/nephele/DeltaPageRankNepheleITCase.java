@@ -36,9 +36,6 @@ import eu.stratosphere.pact.common.stubs.aggregators.LongSumAggregator;
 import eu.stratosphere.pact.common.type.PactRecord;
 import eu.stratosphere.pact.common.type.base.PactDouble;
 import eu.stratosphere.pact.common.type.base.PactLong;
-import eu.stratosphere.pact.common.type.base.parser.DecimalTextDoubleParser;
-import eu.stratosphere.pact.common.type.base.parser.DecimalTextLongParser;
-import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.ProjectForWorkSetMapper;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.RankComparisonMatch;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.UpdateRankReduceDelta;
 import eu.stratosphere.pact.example.incremental.pagerank.PRDependenciesComputationMatchDelta;
@@ -57,7 +54,6 @@ import eu.stratosphere.pact.runtime.shipping.ShipStrategyType;
 import eu.stratosphere.pact.runtime.task.BuildSecondCachedMatchDriver;
 import eu.stratosphere.pact.runtime.task.DriverStrategy;
 import eu.stratosphere.pact.runtime.task.JoinWithSolutionSetMatchDriver.SolutionSetSecondJoinDriver;
-import eu.stratosphere.pact.runtime.task.MapDriver;
 import eu.stratosphere.pact.runtime.task.ReduceDriver;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.pact.runtime.task.util.TaskConfig;
@@ -94,9 +90,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 
 	@Override
 	protected void postSubmit() throws Exception {
-//		for (BufferedReader reader : getResultReader(resultPath)) {
-//			checkOddEvenResult(reader);
-//		}
+		//TODO: check results
 	}
 
 	@Parameters
@@ -128,66 +122,38 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		// --------------- the inputs ---------------------
 
 		// initial solution set
-		JobInputVertex solutionsetInput = JobGraphUtils.createInput(RecordInputFormat.class,
+		@SuppressWarnings("unchecked")
+		RecordInputFormat nodesWithRankInFormat = new RecordInputFormat(' ', PactLong.class, PactDouble.class);
+		JobInputVertex solutionsetInput = JobGraphUtils.createInput(nodesWithRankInFormat,
 				solutionsetPath, "Initial Solution Set Input", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
-		{
-			TaskConfig solutionsetInputConfig = new TaskConfig(solutionsetInput.getConfiguration());
-			Configuration solutionsetInputUserConfig = solutionsetInputConfig.getStubParameters();
-			solutionsetInputConfig.addOutputShipStrategy(ShipStrategyType.PARTITION_HASH);
-			solutionsetInputConfig.setOutputSerializer(serializer);
-			solutionsetInputConfig.setOutputComparator(comparator, 0);
-			
-		/*	solutionsetInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
-			solutionsetInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
-			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 0, DecimalTextLongParser.class);
-			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
-			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 1, DecimalTextDoubleParser.class);
-			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
-			solutionsetInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 2, DecimalTextDoubleParser.class);
-			solutionsetInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 2, 2);
-			solutionsetInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);*/
-			
-		}
+		
+		TaskConfig solutionsetInputConfig = new TaskConfig(solutionsetInput.getConfiguration());
+		solutionsetInputConfig.setOutputSerializer(serializer);
+		solutionsetInputConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
+	    
 
 		// edges with number of outlinks
-		JobInputVertex edgeInput = JobGraphUtils.createInput(RecordInputFormat.class,
+	    @SuppressWarnings("unchecked")
+		RecordInputFormat edgesWithLinksInFormat = new RecordInputFormat(' ', PactLong.class, PactLong.class, PactLong.class);
+		JobInputVertex edgesInput = JobGraphUtils.createInput(edgesWithLinksInFormat,
 			edgesPath, "EdgesInput", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
-		{
-			TaskConfig edgesInputConfig = new TaskConfig(edgeInput.getConfiguration());
-			edgesInputConfig.setOutputSerializer(serializer);
-			edgesInputConfig.addOutputShipStrategy(ShipStrategyType.PARTITION_HASH);
-			edgesInputConfig.setOutputComparator(comparator, 0);
+		
+		TaskConfig edgesInputConfig = new TaskConfig(edgesInput.getConfiguration());
+		edgesInputConfig.setOutputSerializer(serializer);
+		edgesInputConfig.addOutputShipStrategy(ShipStrategyType.PARTITION_HASH);
+		edgesInputConfig.setOutputComparator(comparator, 0);
 			
-			Configuration edgesInputUserConfig = edgesInputConfig.getStubParameters();
-	/*		edgesInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
-			edgesInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
-			edgesInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 0, DecimalTextLongParser.class);
-			edgesInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
-			edgesInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 1, DecimalTextLongParser.class);
-			edgesInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
-			edgesInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 2, DecimalTextLongParser.class);
-			edgesInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 2, 2);
-			edgesInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 3);	*/
-		}
 		
 		// initial deltas
-		JobInputVertex deltasInput = JobGraphUtils.createInput(RecordInputFormat.class,
+		@SuppressWarnings("unchecked")
+		RecordInputFormat initalDeltasInFormat = new RecordInputFormat(' ', PactLong.class, PactDouble.class);
+		JobInputVertex deltasInput = JobGraphUtils.createInput(initalDeltasInFormat,
 				deltasPath, "Initial Deltas Input", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
-		{
-			TaskConfig deltasInputConfig = new TaskConfig(deltasInput.getConfiguration());
-			Configuration deltasInputUserConfig = deltasInputConfig.getStubParameters();
-			deltasInputConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
-			deltasInputConfig.setOutputSerializer(serializer);
-					
-/*			deltasInputUserConfig.setString(RecordInputFormat.RECORD_DELIMITER_PARAMETER, "\n");
-			deltasInputUserConfig.setString(RecordInputFormat.FIELD_DELIMITER_PARAMETER, " ");
-			deltasInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 0, DecimalTextLongParser.class);
-			deltasInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 0, 0);
-			deltasInputUserConfig.setClass(RecordInputFormat.FIELD_PARSER_PARAMETER_PREFIX + 1, DecimalTextDoubleParser.class);
-			deltasInputUserConfig.setInteger(RecordInputFormat.TEXT_POSITION_PARAMETER_PREFIX + 1, 1);
-			deltasInputUserConfig.setInteger(RecordInputFormat.NUM_FIELDS_PARAMETER, 2);	*/
-					
-		}
+		
+		TaskConfig deltasInputConfig = new TaskConfig(deltasInput.getConfiguration());
+		deltasInputConfig.setOutputSerializer(serializer);
+		deltasInputConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
+		
 		
 		// --------------- the iteration head ---------------------
 		JobTaskVertex head = JobGraphUtils.createTask(IterationHeadPactTask.class, "Join With Edges (Iteration Head)", jobGraph,
@@ -225,7 +191,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			headConfig.setSolutionSetPairComparator(pairComparator);
 			
 			// back channel / iterations
-		//	headConfig.setWorksetIteration();
+			headConfig.setIsWorksetIteration();
 			headConfig.setBackChannelMemory(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 			headConfig.setSolutionSetMemory(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 			
@@ -242,8 +208,6 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			
 			// the sync
 			headConfig.setIterationHeadIndexOfSyncOutput(2);
-			// what does this do? It sets among the many outputs the head has (into step function, final results, and sync)
-			// the number of the gate to the sync task, which synchronizes the barrier across all heads. 
 			
 			// the driver 
 			headConfig.setDriver(BuildSecondCachedMatchDriver.class);
@@ -255,14 +219,18 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			headConfig.setMemoryDriver(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 			
 			headConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
+
+			headConfig.setWaitForSolutionSetUpdate();
 		}
 		
-		// --------------- the intermediate (reduce to sum deltas) ---------------
+		// --------------- the intermediate (reduce to sum deltas and update ws) ---------------
 		JobTaskVertex intermediate = JobGraphUtils.createTask(IterationIntermediatePactTask.class,
 			"Sum deltas", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
 		TaskConfig intermediateConfig = new TaskConfig(intermediate.getConfiguration());
 		{
 			intermediateConfig.setIterationId(ITERATION_ID);
+			intermediateConfig.setIsWorksetIteration();
+			intermediateConfig.setIsWorksetUpdate();
 		
 			intermediateConfig.addInputToGroup(0);
 			intermediateConfig.setInputSerializer(serializer, 0);
@@ -282,16 +250,13 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		}
 		
 		// --------------- solution set tail (solution set join) ---------------
-		// his is actually not a tail, as it has successors ;-)
-		JobTaskVertex solutionsetTail = JobGraphUtils.createTask(IterationIntermediatePactTask.class, 
+		JobTaskVertex solutionsetTail = JobGraphUtils.createTask(IterationTailPactTask.class, 
 				"SolutionSetIterationTail", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
 		TaskConfig solutionsetTailConfig = new TaskConfig(solutionsetTail.getConfiguration());
 		{
 			solutionsetTailConfig.setIterationId(ITERATION_ID);
-			//solutionsetTailConfig.setWorksetIteration();
-	//		solutionsetTailConfig.setUpdateSolutionSet();
-	//		solutionsetTailConfig.setUpdateSolutionSetWithoutReprobe();
-		
+            solutionsetTailConfig.setIsSolutionSetUpdate();
+            
 			// inputs and driver
 			solutionsetTailConfig.addInputToGroup(0);
 			solutionsetTailConfig.setInputSerializer(serializer, 0);
@@ -308,27 +273,6 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			solutionsetTailConfig.setIterationSolutionSetJoinNum(0);
 		}
 		
-		// --------------- deltas tail (identity mapper after the rank comparison) ---------------
-		JobTaskVertex deltasTail = JobGraphUtils.createTask(IterationTailPactTask.class, 
-				"DeltasIterationTail", jobGraph, degreeOfParallelism, numSubTasksPerInstance);
-		TaskConfig deltasTailConfig = new TaskConfig(deltasTail.getConfiguration());
-		{
-			deltasTailConfig.setIterationId(ITERATION_ID); 
-	//		deltasTailConfig.setWorksetIteration();
-		
-			// inputs and driver
-			deltasTailConfig.addInputToGroup(0);
-			deltasTailConfig.setInputSerializer(serializer, 0);
-			
-			// output
-			deltasTailConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
-			deltasTailConfig.setOutputSerializer(serializer);
-		
-			// the driver
-			deltasTailConfig.setDriver(MapDriver.class);
-			deltasTailConfig.setDriverStrategy(DriverStrategy.MAP);
-			deltasTailConfig.setStubWrapper(new UserCodeClassWrapper<ProjectForWorkSetMapper>(ProjectForWorkSetMapper.class));
-		}
 		
 		// --------------- the output ---------------------
 		JobOutputVertex output = JobGraphUtils.createFileOutput(jobGraph, "Final Output", degreeOfParallelism, numSubTasksPerInstance);
@@ -352,14 +296,11 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		}
 		
 		// --------------- the auxiliaries ---------------------
-		// you need this only when the solution set has a proper iteration tail (later in the proper setup we are going for)
-//		JobOutputVertex fakeTailOutput = JobGraphUtils.createFakeOutput(jobGraph, "FakeTailOutput",
-//			degreeOfParallelism, numSubTasksPerInstance);
-		
-		JobOutputVertex fakeWSTailOutput = JobGraphUtils.createFakeOutput(jobGraph, "FakeWSTailOutput",
+		//fake tail
+		JobOutputVertex fakeTail = JobGraphUtils.createFakeOutput(jobGraph, "FakeWSTailOutput",
 				degreeOfParallelism, numSubTasksPerInstance);
 
-
+		// the sync
 		JobOutputVertex sync = JobGraphUtils.createSync(jobGraph, degreeOfParallelism);	//2*degreeofParallelism? only 1*DOP
 		TaskConfig syncConfig = new TaskConfig(sync.getConfiguration());
 		syncConfig.setNumberOfIterations(maxIterations);
@@ -367,12 +308,14 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		syncConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
 		syncConfig.setConvergenceCriterion(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, WorksetEmptyConvergenceCriterion.class);
 		
+		
+		
 		// --------------- the wiring ---------------------
 
 		// the order of the wiring matters (per task input), unfortunately... It must happen in the same order as the gates are used
 		// workset (deltas), edges, solution set
 		JobGraphUtils.connect(deltasInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
-		JobGraphUtils.connect(edgeInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
+		JobGraphUtils.connect(edgesInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
 		JobGraphUtils.connect(solutionsetInput, head, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
 
 		JobGraphUtils.connect(head, intermediate, ChannelType.NETWORK, DistributionPattern.BIPARTITE);
@@ -380,25 +323,21 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 		
 		JobGraphUtils.connect(intermediate, solutionsetTail, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
 		solutionsetTailConfig.setGateIterativeWithNumberOfEventsUntilInterrupt(0, 1);
-		
-		JobGraphUtils.connect(solutionsetTail, deltasTail, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
-		deltasTailConfig.setGateIterativeWithNumberOfEventsUntilInterrupt(0, 1);
-
+	
 		JobGraphUtils.connect(head, output, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
-		JobGraphUtils.connect(deltasTail, fakeWSTailOutput, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
+		JobGraphUtils.connect(solutionsetTail, fakeTail, ChannelType.INMEMORY, DistributionPattern.POINTWISE);
 		JobGraphUtils.connect(head, sync, ChannelType.NETWORK, DistributionPattern.POINTWISE);
 		
-		solutionsetInput.setVertexToShareInstancesWith(head);
-		edgeInput.setVertexToShareInstancesWith(head);
 		deltasInput.setVertexToShareInstancesWith(head);
+		edgesInput.setVertexToShareInstancesWith(head);
+		solutionsetInput.setVertexToShareInstancesWith(head);
 		
 		intermediate.setVertexToShareInstancesWith(head);
 		solutionsetTail.setVertexToShareInstancesWith(head);
-		deltasTail.setVertexToShareInstancesWith(head);
-		
+	
 		output.setVertexToShareInstancesWith(head);
 		sync.setVertexToShareInstancesWith(head);
-		fakeWSTailOutput.setVertexToShareInstancesWith(deltasTail);
+		fakeTail.setVertexToShareInstancesWith(solutionsetTail);
 		
 		return jobGraph;
 	}
