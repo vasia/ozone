@@ -91,6 +91,28 @@
 						</configuration>
 					</execution>
 
+					<!-- Delta PageRank -->
+					<execution>
+						<id>Delta PageRank</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>DeltaPageRankWithInitialDeltas</classifier>
+
+							<archive>
+								<manifestEntries>
+									<Pact-Assembler-Class>eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitialDeltas</Pact-Assembler-Class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>**/incremental/pagerank/*.class</include>
+							</includes>
+						</configuration>
+					</execution>
+
 					<!-- KMeansSingleStep -->
 					<execution>
 						<id>KMeansSingleStep</id>
