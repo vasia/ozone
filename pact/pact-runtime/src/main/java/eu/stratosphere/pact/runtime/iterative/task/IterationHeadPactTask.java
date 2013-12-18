@@ -270,9 +270,11 @@ public class IterationHeadPactTask<X, Y, S extends Stub, OT> extends AbstractIte
 				if (log.isInfoEnabled()) {
 					log.info(formatLogString("starting iteration [" + currentIteration() + "]"));
 				}
+				System.out.println("##TIME## HEAD_STARTING " + System.currentTimeMillis());
 	
 				barrier.setup();
 	
+				System.out.println("##TIME## HEAD_PACT_STARTING " + System.currentTimeMillis());
 	//			notifyMonitor(IterationMonitoring.Event.HEAD_PACT_STARTING);
 				if (!inFirstIteration()) {
 					feedBackSuperstepResult(superstepResult);
@@ -281,6 +283,8 @@ public class IterationHeadPactTask<X, Y, S extends Stub, OT> extends AbstractIte
 				super.run();
 	//			notifyMonitor(IterationMonitoring.Event.HEAD_PACT_FINISHED);
 	
+				System.out.println("##TIME## HEAD_PACT_FINISHED " + System.currentTimeMillis());
+				
 				EndOfSuperstepEvent endOfSuperstepEvent = new EndOfSuperstepEvent();
 	
 				// signal to connected tasks that we are done with the superstep
@@ -292,8 +296,9 @@ public class IterationHeadPactTask<X, Y, S extends Stub, OT> extends AbstractIte
 					log.info(formatLogString("finishing iteration [" + currentIteration() + "]"));
 				}
 	
+				System.out.println("##TIME## HEAD_SYNC_BEFORE " + System.currentTimeMillis());
 				sendEventToSync(new WorkerDoneEvent(workerIndex, aggregatorRegistry.getAllAggregators()));
-	
+				
 	//			notifyMonitor(IterationMonitoring.Event.HEAD_FINISHED);
 	
 	//			notifyMonitor(IterationMonitoring.Event.HEAD_WAITING_FOR_OTHERS);
@@ -302,6 +307,7 @@ public class IterationHeadPactTask<X, Y, S extends Stub, OT> extends AbstractIte
 				}
 	
 				barrier.waitForOtherWorkers();
+				System.out.println("##TIME## HEAD_SYNC_AFTER " + System.currentTimeMillis());
 	
 				if (barrier.terminationSignaled()) {
 					if (log.isInfoEnabled()) {

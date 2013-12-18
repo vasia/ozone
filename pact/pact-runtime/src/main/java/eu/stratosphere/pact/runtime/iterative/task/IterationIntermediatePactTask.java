@@ -39,6 +39,8 @@ public class IterationIntermediatePactTask<S extends Stub, OT> extends AbstractI
 
 		while (this.running && !terminationRequested()) {
 
+			System.out.println("##TIME## INTER_START " + this.config.getTaskName() + " " 
+			+ System.currentTimeMillis());
 //			notifyMonitor(IterationMonitoring.Event.INTERMEDIATE_STARTING);
 			if (log.isInfoEnabled()) {
 				log.info(formatLogString("starting iteration [" + currentIteration() + "]"));
@@ -60,6 +62,8 @@ public class IterationIntermediatePactTask<S extends Stub, OT> extends AbstractI
 				propagateEvent(TerminationEvent.INSTANCE);
 			}
 //			notifyMonitor(IterationMonitoring.Event.INTERMEDIATE_FINISHED);
+			System.out.println("##TIME## INTER_END " + this.config.getTaskName() + " " 
+					+ System.currentTimeMillis());
 		}
 	}
 

@@ -41,7 +41,7 @@ import eu.stratosphere.pact.common.type.base.parser.DecimalTextLongParser;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.ProjectForWorkSetMapper;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.RankComparisonMatch;
 import eu.stratosphere.pact.example.incremental.pagerank.DeltaPageRankWithInitializedDeltas.UpdateRankReduceDelta;
-import eu.stratosphere.pact.example.incremental.pagerank.PRDependenciesComputationMatchDelta;
+import eu.stratosphere.pact.example.incremental.pagerank.PRDependenciesComputationMatch;
 import eu.stratosphere.pact.generic.contract.UserCodeClassWrapper;
 import eu.stratosphere.pact.generic.types.TypeComparatorFactory;
 import eu.stratosphere.pact.generic.types.TypePairComparatorFactory;
@@ -248,7 +248,7 @@ public class DeltaPageRankNepheleITCase extends TestBase2 {
 			// the driver 
 			headConfig.setDriver(BuildSecondCachedMatchDriver.class);
 			headConfig.setDriverStrategy(DriverStrategy.HYBRIDHASH_BUILD_SECOND);
-			headConfig.setStubWrapper(new UserCodeClassWrapper<PRDependenciesComputationMatchDelta>(PRDependenciesComputationMatchDelta.class));
+			headConfig.setStubWrapper(new UserCodeClassWrapper<PRDependenciesComputationMatch>(PRDependenciesComputationMatch.class));
 			headConfig.setDriverComparator(comparator, 0);
 			headConfig.setDriverComparator(comparator, 1);
 			headConfig.setDriverPairComparator(pairComparator);

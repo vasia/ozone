@@ -85,6 +85,8 @@ public class IterationTailPactTask<S extends Stub, OT> extends AbstractIterative
 
 		while (this.running && !terminationRequested()) {
 
+			System.out.println("##TIME## TAIL_START " + this.config.getTaskName() + " " 
+					+ System.currentTimeMillis());
 //			notifyMonitor(IterationMonitoring.Event.TAIL_STARTING);
 			if (log.isInfoEnabled()) {
 				log.info(formatLogString("starting iteration [" + currentIteration() + "]"));
@@ -96,10 +98,10 @@ public class IterationTailPactTask<S extends Stub, OT> extends AbstractIterative
 //			notifyMonitor(IterationMonitoring.Event.TAIL_PACT_FINISHED);
 
 			long elementsCollected = outputCollector.getElementsCollectedAndReset();
-//			if (log.isInfoEnabled()) {
-//				log.info("IterationTail [" + getEnvironment().getIndexInSubtaskGroup() + "] inserted [" +
-//					elementsCollected + "] elements into backchannel in iteration [" + currentIteration() + "]");
-//			}
+			if (log.isInfoEnabled()) {
+				log.info("IterationTail [" + getEnvironment().getIndexInSubtaskGroup() + "] inserted [" +
+					elementsCollected + "] elements into backchannel in iteration [" + currentIteration() + "]");
+			}
 			if (worksetElementsAggregator != null) {
 				worksetElementsAggregator.aggregate(elementsCollected);
 			}
@@ -113,6 +115,8 @@ public class IterationTailPactTask<S extends Stub, OT> extends AbstractIterative
 				incrementIterationCounter();
 			}
 //			notifyMonitor(IterationMonitoring.Event.TAIL_FINISHED);
+			System.out.println("##TIME## TAIL_END " + this.config.getTaskName() + " " 
+					+ System.currentTimeMillis());
 		}
 	}
 }
