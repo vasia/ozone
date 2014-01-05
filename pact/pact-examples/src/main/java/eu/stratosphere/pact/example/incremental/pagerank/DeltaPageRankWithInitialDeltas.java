@@ -60,7 +60,7 @@ public class DeltaPageRankWithInitialDeltas implements PlanAssembler, PlanAssemb
 			}
 			
 			// ignore small deltas
-			if (Math.abs(rankSum) > 0.00001) {
+			if (Math.abs(rankSum) > 0.0000001) {
 				newRank.setValue(rankSum);
 				rec.setField(1, newRank);
 				out.collect(rec);

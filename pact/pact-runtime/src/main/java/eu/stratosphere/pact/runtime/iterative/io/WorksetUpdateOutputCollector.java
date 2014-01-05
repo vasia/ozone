@@ -68,6 +68,10 @@ public class WorksetUpdateOutputCollector<T> implements Collector<T> {
 		elementsCollected = 0;
 		return elementsCollectedToReturn;
 	}
+	
+	public long getElementsCollected() {
+		return elementsCollected;
+	}
 
 	@Override
 	public void close() {

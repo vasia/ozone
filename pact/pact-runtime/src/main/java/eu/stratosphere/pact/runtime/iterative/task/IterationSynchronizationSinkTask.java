@@ -109,6 +109,7 @@ public class IterationSynchronizationSinkTask extends AbstractOutputTask impleme
 		
 		while (!terminationRequested()) {
 
+			System.out.println("SYNC == starting iteration " + currentIteration + " at " + System.currentTimeMillis());
 //			notifyMonitor(IterationMonitoring.Event.SYNC_STARTING, currentIteration);
 			if (log.isInfoEnabled()) {
 				log.info(formatLogString("starting iteration [" + currentIteration + "]"));
@@ -129,6 +130,7 @@ public class IterationSynchronizationSinkTask extends AbstractOutputTask impleme
 
 				requestTermination();
 				sendToAllWorkers(new TerminationEvent());
+				System.out.println("SYNC == finished iteration " + currentIteration + " at " + System.currentTimeMillis());
 //				notifyMonitor(IterationMonitoring.Event.SYNC_FINISHED, currentIteration);
 			} else {
 				if (log.isInfoEnabled()) {
@@ -144,6 +146,7 @@ public class IterationSynchronizationSinkTask extends AbstractOutputTask impleme
 					agg.reset();
 				}
 				
+				System.out.println("SYNC == finished iteration " + currentIteration + " at " + System.currentTimeMillis());
 //				notifyMonitor(IterationMonitoring.Event.SYNC_FINISHED, currentIteration);
 				currentIteration++;
 			}

@@ -94,11 +94,15 @@ public class IterationTailPactTask<S extends Stub, OT> extends AbstractIterative
 
 			// check if termination was requested
 			checkForTerminationAndResetEndOfSuperstepState();
+			
+			System.out.println("#Tail# isWorksetUpdate: " + isWorksetUpdate + " isWorksetIteration: " + isWorksetIteration);
+			System.out.println("Elements: " + worksetUpdateOutputCollector.getElementsCollected());
 
 			if (isWorksetUpdate && isWorksetIteration) {
 				// aggregate workset update element count
 				long numCollected = worksetUpdateOutputCollector.getElementsCollectedAndReset();
 				worksetAggregator.aggregate(numCollected);
+				System.out.println("#Tail# " + numCollected + " Elements Collected in Iteration " + currentIteration());
 			}
 
 			if (log.isInfoEnabled()) {
