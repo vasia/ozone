@@ -92,6 +92,7 @@ public class IterationIntermediatePactTask<S extends Stub, OT> extends AbstractI
 			if (isWorksetUpdate && isWorksetIteration) {
 				long numCollected = worksetUpdateOutputCollector.getElementsCollectedAndReset();
 				worksetAggregator.aggregate(numCollected);
+				log.info(formatLogString("#Tail# " + numCollected + " Elements Collected in Iteration " + currentIteration()));
 			}
 
 			if (log.isInfoEnabled()) {
