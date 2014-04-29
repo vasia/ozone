@@ -86,7 +86,7 @@ public class IterativeDataSet<T> extends SingleInputOperator<T, T, IterativeData
 	/**
 	 * Registers an {@link Aggregator} for the iteration together with a {@link ConvergenceCriterion}. For a general description
 	 * of aggregators, see {@link #registerAggregator(String, Class)} and {@link Aggregator}.
-	 * At the end of each iteration, the convergence criterion takes the aggregator's global aggregate value and decided whether
+	 * At the end of each iteration, the convergence criterion takes the aggregator's global aggregate value and decides whether
 	 * the iteration should terminate. A typical use case is to have an aggregator that sums up the total error of change
 	 * in an iteration step and have to have a convergence criterion that signals termination as soon as the aggregate value
 	 * is below a certain threshold.
