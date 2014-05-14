@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import eu.stratosphere.api.common.cache.DistributedCache;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -30,6 +29,7 @@ import eu.stratosphere.api.common.aggregators.AggregatorRegistry;
 import eu.stratosphere.api.common.aggregators.AggregatorWithName;
 import eu.stratosphere.api.common.aggregators.ConvergenceCriterion;
 import eu.stratosphere.api.common.aggregators.LongSumAggregator;
+import eu.stratosphere.api.common.cache.DistributedCache;
 import eu.stratosphere.api.common.distributions.DataDistribution;
 import eu.stratosphere.api.common.typeutils.TypeSerializerFactory;
 import eu.stratosphere.compiler.CompilerException;
@@ -49,9 +49,9 @@ import eu.stratosphere.compiler.plan.SolutionSetPlanNode;
 import eu.stratosphere.compiler.plan.SourcePlanNode;
 import eu.stratosphere.compiler.plan.WorksetIterationPlanNode;
 import eu.stratosphere.compiler.plan.WorksetPlanNode;
+import eu.stratosphere.configuration.ConfigConstants;
 import eu.stratosphere.configuration.Configuration;
 import eu.stratosphere.configuration.GlobalConfiguration;
-import eu.stratosphere.configuration.ConfigConstants;
 import eu.stratosphere.nephele.io.DistributionPattern;
 import eu.stratosphere.nephele.io.channels.ChannelType;
 import eu.stratosphere.nephele.jobgraph.AbstractJobOutputVertex;
@@ -478,8 +478,9 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 						if (container == null) {
 							// predecessor is itself chained
 							container = this.chainedTasks.get(sourceNode).getContainingVertex();
-							if (container == null)
+							if (container == null) {
 								throw new IllegalStateException("Bug: Chained task predecessor has not been assigned its containing vertex.");
+							}
 						} else {
 							// predecessor is a proper task job vertex and this is the first chained task. add a forward connection entry.
 							new TaskConfig(container.getConfiguration()).addOutputShipStrategy(ShipStrategyType.FORWARD);
@@ -502,7 +503,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 					return;
 				}
 				else if (node instanceof BulkPartialSolutionPlanNode ||
-						 node instanceof WorksetPlanNode)
+						node instanceof WorksetPlanNode)
 				{
 					// merged iteration head task. the task that the head is merged with will take care of it
 					return;
@@ -644,8 +645,9 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 				final IterationDescriptor iteration;
 				if ((chainedTask = this.chainedTasks.get(sourceNode)) != null) {
 					// push chained task
-					if (chainedTask.getContainingVertex() == null)
+					if (chainedTask.getContainingVertex() == null) {
 						throw new IllegalStateException("Bug: Chained task has not been assigned its containing vertex when connecting.");
+					}
 					sourceVertex = chainedTask.getContainingVertex();
 					sourceVertexConfig = chainedTask.getTaskConfig();
 				} else if ((iteration = this.iterations.get(sourceNode)) != null) {
@@ -1282,7 +1284,7 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 		syncConfig.addIterationAggregators(allAggregators);
 		
 		String convAggName = aggs.getConvergenceCriterionAggregatorName();
-		Class<? extends ConvergenceCriterion<?>> convCriterion = aggs.getConvergenceCriterion();
+		ConvergenceCriterion<?> convCriterion = aggs.getConvergenceCriterion();
 		
 		if (convCriterion != null || convAggName != null) {
 			if (convCriterion == null) {
@@ -1471,15 +1473,15 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 		syncConfig.addIterationAggregators(allAggregators);
 		
 		String convAggName = aggs.getConvergenceCriterionAggregatorName();
-		Class<? extends ConvergenceCriterion<?>> convCriterion = aggs.getConvergenceCriterion();
+		ConvergenceCriterion<?> convCriterion = aggs.getConvergenceCriterion();
 		
 		if (convCriterion != null || convAggName != null) {
 			throw new CompilerException("Error: Cannot use custom convergence criterion with workset iteration. Workset iterations have implicit convergence criterion where workset is empty.");
 		}
 		
-		headConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
-		syncConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
-		syncConfig.setConvergenceCriterion(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, WorksetEmptyConvergenceCriterion.class);
+		headConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, new LongSumAggregator());
+		syncConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, new LongSumAggregator());
+		syncConfig.setConvergenceCriterion(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, new WorksetEmptyConvergenceCriterion());
 	}
 
 	// -------------------------------------------------------------------------------------

@@ -16,6 +16,7 @@ package eu.stratosphere.test.iterative.nephele;
 import java.io.BufferedReader;
 import java.util.Collection;
 
+import eu.stratosphere.test.util.RecordAPITestBase;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -57,7 +58,6 @@ import eu.stratosphere.test.testPrograms.WorksetConnectedComponents.MinimumCompo
 import eu.stratosphere.test.testPrograms.WorksetConnectedComponents.NeighborWithComponentIDJoin;
 import eu.stratosphere.test.testPrograms.WorksetConnectedComponents.UpdateComponentIdMatch;
 import eu.stratosphere.test.testdata.ConnectedComponentsData;
-import eu.stratosphere.test.util.TestBase2;
 import eu.stratosphere.types.LongValue;
 import eu.stratosphere.types.Record;
 import eu.stratosphere.util.Collector;
@@ -70,7 +70,7 @@ import eu.stratosphere.util.Collector;
  * - intermediate solution set update and workset tail
  */
 @RunWith(Parameterized.class)
-public class ConnectedComponentsNepheleITCase extends TestBase2 {
+public class ConnectedComponentsNepheleITCase extends RecordAPITestBase {
 
 	private static final long SEED = 0xBADC0FFEEBEEFL;
 
@@ -276,7 +276,7 @@ public class ConnectedComponentsNepheleITCase extends TestBase2 {
 			headConfig.setMemoryDriver(MEM_PER_CONSUMER * JobGraphUtils.MEGABYTE);
 
 			headConfig.addIterationAggregator(
-				WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, LongSumAggregator.class);
+				WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME, new LongSumAggregator());
 		}
 
 		return head;
@@ -351,9 +351,9 @@ public class ConnectedComponentsNepheleITCase extends TestBase2 {
 		syncConfig.setNumberOfIterations(maxIterations);
 		syncConfig.setIterationId(ITERATION_ID);
 		syncConfig.addIterationAggregator(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME,
-			LongSumAggregator.class);
+			new LongSumAggregator());
 		syncConfig.setConvergenceCriterion(WorksetEmptyConvergenceCriterion.AGGREGATOR_NAME,
-			WorksetEmptyConvergenceCriterion.class);
+			new WorksetEmptyConvergenceCriterion());
 
 		return sync;
 	}

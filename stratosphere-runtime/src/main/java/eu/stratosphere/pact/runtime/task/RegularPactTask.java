@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -31,9 +30,9 @@ import eu.stratosphere.api.common.typeutils.TypeComparator;
 import eu.stratosphere.api.common.typeutils.TypeComparatorFactory;
 import eu.stratosphere.api.common.typeutils.TypeSerializer;
 import eu.stratosphere.api.common.typeutils.TypeSerializerFactory;
+import eu.stratosphere.configuration.ConfigConstants;
 import eu.stratosphere.configuration.Configuration;
 import eu.stratosphere.configuration.GlobalConfiguration;
-import eu.stratosphere.configuration.ConfigConstants;
 import eu.stratosphere.core.io.IOReadableWritable;
 import eu.stratosphere.nephele.execution.Environment;
 import eu.stratosphere.nephele.execution.librarycache.LibraryCacheManager;
@@ -167,7 +166,7 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 	/**
 	 * The serializers for the input data type.
 	 */
-	protected TypeSerializer<?>[] inputSerializers;
+	protected TypeSerializerFactory<?>[] inputSerializers;
 
 	/**
 	 * The serializers for the broadcast input data types.
@@ -288,8 +287,9 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 	@Override
 	public void invoke() throws Exception {
 		
-		if (LOG.isDebugEnabled())
+		if (LOG.isDebugEnabled()) {
 			LOG.debug(formatLogString("Start task code."));
+		}
 		
 		// whatever happens in this scope, make sure that the local strategies are cleaned up!
 		// note that the initialization of the local strategies is in the try-finally block as well,
@@ -357,8 +357,9 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 			}
 			
 			if (!this.running) {
-				if (LOG.isDebugEnabled())
+				if (LOG.isDebugEnabled()) {
 					LOG.debug(formatLogString("Task cancelled before task code was started."));
+				}
 				return;
 			}
 			
@@ -380,11 +381,13 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 		}
 		
 		if (this.running) {
-			if (LOG.isDebugEnabled())
+			if (LOG.isDebugEnabled()) {
 				LOG.debug(formatLogString("Finished task code."));
+			}
 		} else {
-			if (LOG.isDebugEnabled())
+			if (LOG.isDebugEnabled()) {
 				LOG.debug(formatLogString("Task code cancelled."));
+			}
 		}
 	}
 	
@@ -392,8 +395,9 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 	public void cancel() throws Exception {
 		this.running = false;
 		
-		if (LOG.isDebugEnabled())
+		if (LOG.isDebugEnabled()) {
 			LOG.debug(formatLogString("Cancelling task code"));
+		}
 		
 		try {
 			if (this.driver != null) {
@@ -760,14 +764,14 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 	 * Creates all the serializers and comparators.
 	 */
 	protected void initInputsSerializersAndComparators(int numInputs) throws Exception {
-		this.inputSerializers = new TypeSerializer[numInputs];
+		this.inputSerializers = new TypeSerializerFactory<?>[numInputs];
 		this.inputComparators = this.driver.requiresComparatorOnInput() ? new TypeComparator[numInputs] : null;
 		this.inputIterators = new MutableObjectIterator[numInputs];
 		
 		for (int i = 0; i < numInputs; i++) {
 			//  ---------------- create the serializer first ---------------------
 			final TypeSerializerFactory<?> serializerFactory = this.config.getInputSerializer(i, this.userCodeClassLoader);
-			this.inputSerializers[i] = serializerFactory.getSerializer();
+			this.inputSerializers[i] = serializerFactory;
 			
 			//  ---------------- create the driver's comparator ---------------------
 			if (this.inputComparators != null) {
@@ -775,7 +779,7 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 				this.inputComparators[i] = comparatorFactory.createComparator();
 			}
 			
-			this.inputIterators[i] = createInputIterator(this.inputReaders[i], this.inputSerializers[i]);
+			this.inputIterators[i] = createInputIterator(this.inputReaders[i], this.inputSerializers[i].getSerializer());
 		}
 	}
 	
@@ -857,7 +861,7 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 			} else if (cached) {
 				@SuppressWarnings({ "unchecked", "rawtypes" })
 				SpillingResettableMutableObjectIterator<?> iter = new SpillingResettableMutableObjectIterator(
-					getInput(i), this.inputSerializers[i], getMemoryManager(), getIOManager(), memoryPages, this);
+					getInput(i), this.inputSerializers[i].getSerializer(), getMemoryManager(), getIOManager(), memoryPages, this);
 				this.resettableInputs[i] = iter;
 				this.inputs[i] = iter;
 			}
@@ -895,6 +899,7 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 					if (this.tempBarriers[i] != null) {
 						this.inputs[i] = this.tempBarriers[i].getIterator();
 					} else if (this.resettableInputs[i] != null) {
+						this.resettableInputs[i].consumeAndCacheRemainingData();
 						this.resettableInputs[i].reset();
 						this.inputs[i] = this.resettableInputs[i];
 					} else {
@@ -1128,14 +1133,14 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 
 
 	@Override
-	public <X> TypeSerializer<X> getInputSerializer(int index) {
+	public <X> TypeSerializerFactory<X> getInputSerializer(int index) {
 		if (index < 0 || index >= this.driver.getNumberOfInputs()) {
 			throw new IndexOutOfBoundsException();
 		}
 
 		@SuppressWarnings("unchecked")
-		final TypeSerializer<X> serializer = (TypeSerializer<X>) this.inputSerializers[index];
-		return serializer;
+		final TypeSerializerFactory<X> serializerFactory = (TypeSerializerFactory<X>) this.inputSerializers[index];
+		return serializerFactory;
 	}
 
 
@@ -1435,8 +1440,9 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 		// start all chained tasks
 		for (int i = 0; i < tasks.size(); i++) {
 			final ChainedDriver<?, ?> task = tasks.get(i);
-			if (LOG.isDebugEnabled())
+			if (LOG.isDebugEnabled()) {
 				LOG.debug(constructLogString("Start task code", task.getTaskName(), parent));
+			}
 			task.openTask();
 		}
 	}
@@ -1454,8 +1460,9 @@ public class RegularPactTask<S extends Function, OT> extends AbstractTask implem
 			final ChainedDriver<?, ?> task = tasks.get(i);
 			task.closeTask();
 			
-			if (LOG.isDebugEnabled())
+			if (LOG.isDebugEnabled()) {
 				LOG.debug(constructLogString("Finished task code", task.getTaskName(), parent));
+			}
 		}
 	}
 	

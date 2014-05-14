@@ -201,9 +201,9 @@ public class TaskConfig {
 	
 	private static final String ITERATION_SOLUTION_SET_UPDATE_SKIP_REPROBE = "iterative.ss-update-fast";
 
-    private static final String ITERATION_SOLUTION_SET_UPDATE_WAIT = "iterative.ss-wait";
+	private static final String ITERATION_SOLUTION_SET_UPDATE_WAIT = "iterative.ss-wait";
 
-    private static final String ITERATION_WORKSET_UPDATE = "iterative.ws-update";
+	private static final String ITERATION_WORKSET_UPDATE = "iterative.ws-update";
 
 	// ---------------------------------- Miscellaneous -------------------------------------------
 	
@@ -666,8 +666,9 @@ public class TaskConfig {
 
 	public Class<? extends ChainedDriver<?, ?>> getChainedTask(int chainPos) {
 		final String className = this.config.getString(CHAINING_TASK_PREFIX + chainPos, null);
-		if (className == null)
+		if (className == null) {
 			throw new IllegalStateException("Chained Task Class missing");
+		}
 		
 		@SuppressWarnings("unchecked")
 		final Class<ChainedDriver<?, ?>> clazz = (Class<ChainedDriver<?, ?>>) (Class<?>) ChainedDriver.class;
@@ -865,10 +866,14 @@ public class TaskConfig {
 			ITERATION_SOLUTION_SET_COMPARATOR_PARAMETERS, cl);
 	}
 
-	public void addIterationAggregator(String name, Class<? extends Aggregator<?>> aggregator) {
+	public void addIterationAggregator(String name, Aggregator<?> aggregator) {
 		int num = this.config.getInteger(ITERATION_NUM_AGGREGATORS, 0);
 		this.config.setString(ITERATION_AGGREGATOR_NAME_PREFIX + num, name);
-		this.config.setClass(ITERATION_AGGREGATOR_PREFIX + num, aggregator);
+		try {
+				InstantiationUtil.writeObjectToConfig(aggregator, this.config, ITERATION_AGGREGATOR_PREFIX + num);
+		} catch (IOException e) {
+				throw new RuntimeException("Error while writing the aggregator object to the task configuration.");
+		}
 		this.config.setInteger(ITERATION_NUM_AGGREGATORS, num + 1);
 	}
 	
@@ -876,12 +881,17 @@ public class TaskConfig {
 		int num = this.config.getInteger(ITERATION_NUM_AGGREGATORS, 0);
 		for (AggregatorWithName<?> awn : aggregators) {
 			this.config.setString(ITERATION_AGGREGATOR_NAME_PREFIX + num, awn.getName());
-			this.config.setClass(ITERATION_AGGREGATOR_PREFIX + num, awn.getAggregator());
+			try {
+				InstantiationUtil.writeObjectToConfig(awn.getAggregator(), this.config, ITERATION_AGGREGATOR_PREFIX + num);
+			} catch (IOException e) {
+				throw new RuntimeException("Error while writing the aggregator object to the task configuration.");
+			}
 			num++;
 		}
 		this.config.setInteger(ITERATION_NUM_AGGREGATORS, num);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public Collection<AggregatorWithName<?>> getIterationAggregators() {
 		final int numAggs = this.config.getInteger(ITERATION_NUM_AGGREGATORS, 0);
 		if (numAggs == 0) {
@@ -890,33 +900,53 @@ public class TaskConfig {
 		
 		List<AggregatorWithName<?>> list = new ArrayList<AggregatorWithName<?>>(numAggs);
 		for (int i = 0; i < numAggs; i++) {
-			@SuppressWarnings("unchecked")
-			Class<Aggregator<Value>> aggClass = (Class<Aggregator<Value>>) (Class<?>) this.config.getClass(ITERATION_AGGREGATOR_PREFIX + i, null);
-			if (aggClass == null) {
+			Aggregator<Value> aggObj;
+			try {
+				aggObj = (Aggregator<Value>) InstantiationUtil.readObjectFromConfig(
+						this.config, ITERATION_AGGREGATOR_PREFIX + i, getConfiguration().getClassLoader());
+			} catch (IOException e) {
+					throw new RuntimeException("Error while reading the aggregator object from the task configuration.");
+			} catch (ClassNotFoundException e) {
+					throw new RuntimeException("Error while reading the aggregator object from the task configuration. " +
+				"Aggregator class not found.");
+			}
+			if (aggObj == null) {
 				throw new RuntimeException("Missing config entry for aggregator.");
 			}
 			String name = this.config.getString(ITERATION_AGGREGATOR_NAME_PREFIX + i, null);
 			if (name == null) {
 				throw new RuntimeException("Missing config entry for aggregator.");
 			}
-			list.add(new AggregatorWithName<Value>(name, aggClass));
+			list.add(new AggregatorWithName<Value>(name, aggObj));
 		}
 		return list;
 	}
 	
-	public void setConvergenceCriterion(String aggregatorName, Class<? extends ConvergenceCriterion<?>> convergenceCriterionClass) {
-		this.config.setClass(ITERATION_CONVERGENCE_CRITERION, convergenceCriterionClass);
+	public void setConvergenceCriterion(String aggregatorName, ConvergenceCriterion<?> convCriterion) {
+		try {
+			InstantiationUtil.writeObjectToConfig(convCriterion, this.config, ITERATION_CONVERGENCE_CRITERION);
+		} catch (IOException e) {
+			throw new RuntimeException("Error while writing the convergence criterion object to the task configuration.");
+		}
 		this.config.setString(ITERATION_CONVERGENCE_CRITERION_AGG_NAME, aggregatorName);
 	}
 
-	public <T extends Value> Class<? extends ConvergenceCriterion<T>> getConvergenceCriterion() {
-		@SuppressWarnings("unchecked")
-		Class<? extends ConvergenceCriterion<T>> clazz = (Class<? extends ConvergenceCriterion<T>>) (Class<?>) 
-							this.config.getClass(ITERATION_CONVERGENCE_CRITERION, null, ConvergenceCriterion.class);
-		if (clazz == null) {
+	@SuppressWarnings("unchecked")
+	public <T extends Value> ConvergenceCriterion<T> getConvergenceCriterion() {
+		ConvergenceCriterion<T> convCriterionObj = null;
+		try {
+			convCriterionObj = (ConvergenceCriterion<T>) InstantiationUtil.readObjectFromConfig(
+			this.config, ITERATION_CONVERGENCE_CRITERION, getConfiguration().getClassLoader());
+		} catch (IOException e) {
+			throw new RuntimeException("Error while reading the covergence criterion object from the task configuration.");
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException("Error while reading the covergence criterion object from the task configuration. " +
+					"ConvergenceCriterion class not found.");
+		}
+		if (convCriterionObj == null) {
 			throw new NullPointerException();
 		}
-		return clazz;
+		return convCriterionObj;
 	}
 
 	public boolean usesConvergenceCriterion() {
@@ -943,21 +973,21 @@ public class TaskConfig {
 		return this.config.getBoolean(ITERATION_SOLUTION_SET_UPDATE_SKIP_REPROBE, false);
 	}
 
-    public void setWaitForSolutionSetUpdate() {
-        this.config.setBoolean(ITERATION_SOLUTION_SET_UPDATE_WAIT, true);
-    }
+	public void setWaitForSolutionSetUpdate() {
+		this.config.setBoolean(ITERATION_SOLUTION_SET_UPDATE_WAIT, true);
+	}
 
-    public boolean getWaitForSolutionSetUpdate() {
-        return this.config.getBoolean(ITERATION_SOLUTION_SET_UPDATE_WAIT, false);
-    }
+	public boolean getWaitForSolutionSetUpdate() {
+		return this.config.getBoolean(ITERATION_SOLUTION_SET_UPDATE_WAIT, false);
+	}
 
-    public void setIsWorksetUpdate() {
-        this.config.setBoolean(ITERATION_WORKSET_UPDATE, true);
-    }
+	public void setIsWorksetUpdate() {
+		this.config.setBoolean(ITERATION_WORKSET_UPDATE, true);
+	}
 
-    public boolean getIsWorksetUpdate() {
-        return this.config.getBoolean(ITERATION_WORKSET_UPDATE, false);
-    }
+	public boolean getIsWorksetUpdate() {
+		return this.config.getBoolean(ITERATION_WORKSET_UPDATE, false);
+	}
 
 	// --------------------------------------------------------------------------------------------
 	//                                    Miscellaneous
@@ -1223,8 +1253,9 @@ public class TaskConfig {
 			if (obj instanceof DelegatingConfiguration) {
 				DelegatingConfiguration other = (DelegatingConfiguration) obj;
 				return this.prefix.equals(other.prefix) && this.backingConfig.equals(other.backingConfig);
+			} else {
+				return false;
 			}
-			else return false;
 		}
 	}
 }

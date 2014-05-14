@@ -13,11 +13,12 @@
 
 package eu.stratosphere.example.java.record.pagerank;
 
-import eu.stratosphere.api.common.aggregators.ConvergenceCriterion;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import eu.stratosphere.api.common.aggregators.ConvergenceCriterion;
+
+@SuppressWarnings("serial")
 public class DiffL1NormConvergenceCriterion implements ConvergenceCriterion<PageRankStats> {
 
 	private static final double EPSILON = 0.00005;

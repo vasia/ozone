@@ -19,12 +19,12 @@ import java.util.Map;
 import org.apache.commons.lang3.Validate;
 
 import eu.stratosphere.api.common.aggregators.Aggregator;
+import eu.stratosphere.api.common.operators.DualInputSemanticProperties;
 import eu.stratosphere.api.common.operators.Operator;
 import eu.stratosphere.api.java.DataSet;
 import eu.stratosphere.api.java.functions.CoGroupFunction;
 import eu.stratosphere.api.java.operators.CustomUnaryOperation;
 import eu.stratosphere.api.java.operators.TwoInputOperator;
-import eu.stratosphere.api.java.operators.translation.BinaryNodeTranslation;
 import eu.stratosphere.api.java.operators.translation.PlanCogroupOperator;
 import eu.stratosphere.api.java.operators.translation.PlanDeltaIterationOperator;
 import eu.stratosphere.api.java.tuple.Tuple;
@@ -79,7 +79,7 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 	
 	private final TypeInformation<Message> messageType;
 	
-	private final Map<String, Class<? extends Aggregator<?>>> aggregators;
+	private final Map<String, Aggregator<?>> aggregators;
 	
 	private final int maximumNumberOfIterations;
 	
@@ -106,7 +106,7 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 		this.edgesWithoutValue = edgesWithoutValue;
 		this.edgesWithValue = null;
 		this.maximumNumberOfIterations = maximumNumberOfIterations;
-		this.aggregators = new HashMap<String, Class<? extends Aggregator<?>>>();
+		this.aggregators = new HashMap<String, Aggregator<?>>();
 		
 		this.messageType = getMessageType(mf);
 	}
@@ -131,7 +131,7 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 		this.edgesWithoutValue = null;
 		this.edgesWithValue = edgesWithValue;
 		this.maximumNumberOfIterations = maximumNumberOfIterations;
-		this.aggregators = new HashMap<String, Class<? extends Aggregator<?>>>();
+		this.aggregators = new HashMap<String, Aggregator<?>>();
 		
 		this.messageType = getMessageType(mf);
 	}
@@ -148,7 +148,7 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 	 * @param name The name of the aggregator, used to retrieve it and its aggregates during execution. 
 	 * @param aggregator The aggregator.
 	 */
-	public void registerAggregator(String name, Class<? extends Aggregator<?>> aggregator) {
+	public void registerAggregator(String name, Aggregator<?> aggregator) {
 		this.aggregators.put(name, aggregator);
 	}
 	
@@ -430,17 +430,17 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 		
 		private final TypeInformation<Tuple2<VertexKey, Message>> messageType;
 		
-		private final Map<String, Class<? extends Aggregator<?>>> aggregators;
+		private final Map<String, Aggregator<?>> aggregators;
 		
 		private final int maximumNumberOfIterations;
 		
 		private GraphIterationOperator(DataSet<Tuple2<VertexKey, VertexValue>> initialVertices,
-		                                            DataSet<EdgeType> edges,
-		                                            VertexUpdateUdf<VertexKey, VertexValue, Message> updateFunction,
-		                                            CoGroupFunction<EdgeType, Tuple2<VertexKey, VertexValue>, Tuple2<VertexKey, Message>> messagingFunction,
-		                                            TypeInformation<Message> messageType,
-		                                            Map<String, Class<? extends Aggregator<?>>> aggregators,
-		                                            int maximumNumberOfIterations)
+													DataSet<EdgeType> edges,
+													VertexUpdateUdf<VertexKey, VertexValue, Message> updateFunction,
+													CoGroupFunction<EdgeType, Tuple2<VertexKey, VertexValue>, Tuple2<VertexKey, Message>> messagingFunction,
+													TypeInformation<Message> messageType,
+													Map<String, Aggregator<?>> aggregators,
+													int maximumNumberOfIterations)
 		{
 			super(initialVertices, edges, initialVertices.getType());
 			
@@ -456,7 +456,7 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 		}
 
 		@Override
-		protected BinaryNodeTranslation translateToDataFlow() {
+		protected Operator translateToDataFlow(Operator input1, Operator input2) {
 			
 			final String name = (getName() != null) ? getName() :
 					"Vertex-centric iteration (" + updateFunction + " | " + messagingFunction + ")";
@@ -469,7 +469,7 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 			
 			iteration.setMaximumNumberOfIterations(maximumNumberOfIterations);
 			
-			for (Map.Entry<String, Class<? extends Aggregator<?>>> entry : aggregators.entrySet()) {
+			for (Map.Entry<String, Aggregator<?>> entry : aggregators.entrySet()) {
 				iteration.getAggregators().registerAggregator(entry.getKey(), entry.getValue());
 			}
 			
@@ -486,24 +486,22 @@ public class VertexCentricIteration<VertexKey extends Comparable<VertexKey>, Ver
 			updater.setFirstInput(messenger);
 			updater.setSecondInput(iteration.getSolutionSet());
 			
+			// let the opertor know that we preserve the key field
+			DualInputSemanticProperties semanticProps = new DualInputSemanticProperties();
+			semanticProps.addForwardedField1(0, 0);
+			semanticProps.addForwardedField2(0, 0);
+			updater.setSemanticProperties(semanticProps);
+			
 			iteration.setSolutionSetDelta(updater);
 			iteration.setNextWorkset(updater);
 			
-			// return a translation node that will assign the first input to the iteration (both initial solution set and workset)
-			// and that assigns the second input to the messenger function (as the edge input)
-			return new BinaryNodeTranslation(iteration) {
-				
-				@Override
-				public void setInput1(Operator op) {
-					iteration.setFirstInput(op);
-					iteration.setSecondInput(op);
-				}
-				
-				@Override
-				public void setInput2(Operator op) {
-					messenger.setFirstInput(op);
-				}
-			};
+			// set inputs
+			iteration.setFirstInput(input1);
+			iteration.setSecondInput(input1);
+			messenger.setFirstInput(input2);
+			
+			return iteration;
+			
 		}
 	}
 }

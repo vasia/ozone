@@ -14,10 +14,11 @@
 package eu.stratosphere.nephele.instance.local;
 
 import java.io.File;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -65,6 +66,11 @@ public class LocalInstanceManager implements InstanceManager {
 
 	private static final String LOCALINSTANCE_TYPE_KEY = "instancemanager.local.type";
 
+	private static final int SLEEP_TIME = 50;
+
+	private static final int START_STOP_TIMEOUT = 2000;
+
+
 	/**
 	 * The instance listener registered with this instance manager.
 	 */
@@ -82,19 +88,20 @@ public class LocalInstanceManager implements InstanceManager {
 	private final Object synchronizationObject = new Object();
 
 	/**
-	 * Stores if the local task manager is currently by a job.
+	 * Stores which task manager is currently occupied by a job.
 	 */
-	private AllocatedResource allocatedResource;
+	private Map<LocalInstance, AllocatedResource> allocatedResources = new HashMap<LocalInstance, AllocatedResource>();
 
 	/**
-	 * The local instance encapsulating the task manager
+	 * The local instances encapsulating the task managers
 	 */
-	private LocalInstance localInstance;
+	private Map<InstanceConnectionInfo, LocalInstance> localInstances = new HashMap<InstanceConnectionInfo,
+					LocalInstance>();
 
 	/**
-	 * The thread running the local task manager.
+	 * The threads running the local task managers.
 	 */
-	private final TaskManager taskManager;
+	private final List<TaskManager> taskManagers = new ArrayList<TaskManager>();
 
 	/**
 	 * The network topology the local instance is part of.
@@ -107,10 +114,16 @@ public class LocalInstanceManager implements InstanceManager {
 	private final Map<InstanceType, InstanceTypeDescription> instanceTypeDescriptionMap;
 
 	/**
+	 * Number of task managers
+	 */
+	private final int numTaskManagers;
+
+
+
+
+	/**
 	 * Constructs a new local instance manager.
-	 * 
-	 * @param configDir
-	 *        the path to the configuration directory
+	 *
 	 */
 	public LocalInstanceManager() throws Exception {
 
@@ -135,7 +148,24 @@ public class LocalInstanceManager implements InstanceManager {
 
 		this.instanceTypeDescriptionMap = new SerializableHashMap<InstanceType, InstanceTypeDescription>();
 
-		this.taskManager = new TaskManager();
+		numTaskManagers = GlobalConfiguration.getInteger(ConfigConstants
+				.LOCAL_INSTANCE_MANAGER_NUMBER_TASK_MANAGER, 1);
+		for(int i=0; i< numTaskManagers; i++){
+
+			Configuration tm = new Configuration();
+			int ipcPort = GlobalConfiguration.getInteger(ConfigConstants.TASK_MANAGER_IPC_PORT_KEY,
+					ConfigConstants.DEFAULT_TASK_MANAGER_IPC_PORT);
+			int dataPort = GlobalConfiguration.getInteger(ConfigConstants.TASK_MANAGER_DATA_PORT_KEY,
+					ConfigConstants.DEFAULT_TASK_MANAGER_DATA_PORT);
+
+			tm.setInteger(ConfigConstants.TASK_MANAGER_IPC_PORT_KEY, ipcPort + i);
+			tm.setInteger(ConfigConstants.TASK_MANAGER_DATA_PORT_KEY, dataPort + i);
+
+			GlobalConfiguration.includeConfiguration(tm);
+
+			TaskManager t = new TaskManager();
+			taskManagers.add(t);
+		}
 	}
 
 
@@ -184,22 +214,22 @@ public class LocalInstanceManager implements InstanceManager {
 
 
 	@Override
-	public void releaseAllocatedResource(JobID jobID, Configuration conf, AllocatedResource allocatedResource)
-			throws InstanceException
-	{
+	public void releaseAllocatedResource(final JobID jobID, final Configuration conf,
+			final AllocatedResource allocatedResource)
+			throws InstanceException {
+		LocalInstance instance = (LocalInstance) allocatedResource.getInstance();
+
 		synchronized (this.synchronizationObject) {
-
-			if (this.allocatedResource != null) {
-
-				if (this.allocatedResource.equals(allocatedResource)) {
-					this.allocatedResource = null;
+			if(allocatedResources.containsKey(allocatedResource.getInstance())){
+				if(allocatedResources.get(instance).equals(allocatedResource)){
+					allocatedResources.remove(instance);
 					return;
 				}
 			}
-
 			throw new InstanceException("Resource with allocation ID " + allocatedResource.getAllocationID()
-				+ " has not been allocated to job with ID " + jobID
-				+ " according to the local instance manager's internal bookkeeping");
+					+ " has not been allocated to job with ID " + jobID
+					+ " according to the local instance manager's internal bookkeeping");
+
 		}
 	}
 
@@ -209,13 +239,13 @@ public class LocalInstanceManager implements InstanceManager {
 			final HardwareDescription hardwareDescription) {
 
 		synchronized (this.synchronizationObject) {
-			if (this.localInstance == null) {
-				this.localInstance = new LocalInstance(this.defaultInstanceType,
-					instanceConnectionInfo, this.networkTopology.getRootNode(), this.networkTopology,
-					hardwareDescription);
+			if(!localInstances.containsKey(instanceConnectionInfo)){
+				LocalInstance localInstance = new LocalInstance(this.defaultInstanceType, instanceConnectionInfo,
+						this.networkTopology.getRootNode(), this.networkTopology, hardwareDescription);
+				localInstances.put(instanceConnectionInfo, localInstance);
 
-				this.instanceTypeDescriptionMap.put(this.defaultInstanceType,
-					InstanceTypeDescriptionFactory.construct(this.defaultInstanceType, hardwareDescription, 1));
+				this.instanceTypeDescriptionMap.put(this.defaultInstanceType, InstanceTypeDescriptionFactory
+						.construct(this.defaultInstanceType, hardwareDescription, localInstances.size()));
 			}
 		}
 	}
@@ -223,22 +253,47 @@ public class LocalInstanceManager implements InstanceManager {
 
 	@Override
 	public void shutdown() {
-		// Stop the internal instance of the task manager
-		if (this.taskManager != null) {
-			this.taskManager.shutdown();
-		}
-		
-		// Clear the instance type description list
-		if (this.instanceTypeDescriptionMap != null) {
-			this.instanceTypeDescriptionMap.clear();
+		// Stop the task managers
+		for(TaskManager t : taskManagers){
+			t.shutdown();
 		}
 
-		// Destroy local instance
-		synchronized (this.synchronizationObject) {
-			if (this.localInstance != null) {
-				this.localInstance.destroyProxies();
-				this.localInstance = null;
+		boolean areAllTaskManagerShutdown = false;
+		int timeout = START_STOP_TIMEOUT * this.taskManagers.size();
+
+		for(int sleep = 0; sleep < timeout; sleep += SLEEP_TIME){
+			areAllTaskManagerShutdown = true;
+
+			for(TaskManager t: taskManagers){
+				if(!t.isShutDown()){
+					areAllTaskManagerShutdown = false;
+					break;
+				}
 			}
+
+			if(areAllTaskManagerShutdown){
+				break;
+			}
+
+			try {
+				Thread.sleep(SLEEP_TIME);
+			}catch(InterruptedException e){
+				break;
+			}
+		}
+
+		if(!areAllTaskManagerShutdown){
+			throw new RuntimeException(String.format("TaskManager shut down timed out (%d ms).", timeout));
+		}
+
+		instanceTypeDescriptionMap.clear();
+
+		synchronized(this.synchronizationObject){
+			for(LocalInstance instance: this.localInstances.values()){
+				instance.destroyProxies();
+			}
+
+			localInstances.clear();
 		}
 	}
 
@@ -265,7 +320,7 @@ public class LocalInstanceManager implements InstanceManager {
 		final HardwareDescription hardwareDescription = HardwareDescriptionFactory.extractFromSystem();
 
 		int diskCapacityInGB = 0;
-		final String tempDirs[] = GlobalConfiguration.getString(ConfigConstants.TASK_MANAGER_TMP_DIR_KEY,
+		final String[] tempDirs = GlobalConfiguration.getString(ConfigConstants.TASK_MANAGER_TMP_DIR_KEY,
 			ConfigConstants.DEFAULT_TASK_MANAGER_TMP_PATH).split(File.pathSeparator);
 		
 		for (final String tempDir : tempDirs) {
@@ -295,6 +350,9 @@ public class LocalInstanceManager implements InstanceManager {
 		// TODO: This can be implemented way simpler...
 		// Iterate over all instance types
 		final Iterator<Map.Entry<InstanceType, Integer>> it = instanceRequestMap.getMinimumIterator();
+		final List<AllocatedResource> assignedResources = new ArrayList<AllocatedResource>();
+		boolean assignmentSuccessful = true;
+
 		while (it.hasNext()) {
 
 			// Iterate over all requested instances of a specific type
@@ -302,30 +360,28 @@ public class LocalInstanceManager implements InstanceManager {
 
 			for (int i = 0; i < entry.getValue().intValue(); i++) {
 
-				boolean assignmentSuccessful = false;
-				AllocatedResource allocatedResource = null;
 				synchronized (this.synchronizationObject) {
-
-					if (this.localInstance != null) { // Instance is available
-						if (this.allocatedResource == null) { // Instance is not used by another job
-							allocatedResource = new AllocatedResource(this.localInstance, entry.getKey(),
-								new AllocationID());
-							this.allocatedResource = allocatedResource;
-							assignmentSuccessful = true;
+					boolean instanceFound = false;
+					for(LocalInstance instance: localInstances.values()){
+						if(!allocatedResources.containsKey(instance)){
+							AllocatedResource assignedResource = new AllocatedResource(instance, entry.getKey(),
+									new AllocationID());
+							allocatedResources.put(instance, assignedResource);
+							assignedResources.add(assignedResource);
+							instanceFound = true;
+							break;
 						}
 					}
-				}
 
-				final List<AllocatedResource> allocatedResources = new ArrayList<AllocatedResource>(1);
-				allocatedResources.add(this.allocatedResource);
-
-				if (assignmentSuccessful) {
-					// Spawn a new thread to send the notification
-					new LocalInstanceNotifier(this.instanceListener, jobID, allocatedResources).start();
-				} else {
-					throw new InstanceException("No instance of type " + entry.getKey() + " available");
+					assignmentSuccessful &= instanceFound;
 				}
 			}
+		}
+
+		if(assignmentSuccessful){
+			new LocalInstanceNotifier(this.instanceListener, jobID, assignedResources).start();
+		}else{
+			throw new InstanceException("Could not satisfy instance request.");
 		}
 	}
 
@@ -336,10 +392,9 @@ public class LocalInstanceManager implements InstanceManager {
 		}
 
 		synchronized (this.synchronizationObject) {
-
-			if (this.localInstance != null) {
-				if (name.equals(this.localInstance.getName())) {
-					return this.localInstance;
+			for(LocalInstance instance :localInstances.values()){
+				if(name.equals(instance.getName())){
+					return instance;
 				}
 			}
 		}
@@ -354,6 +409,6 @@ public class LocalInstanceManager implements InstanceManager {
 
 	@Override
 	public int getNumberOfTaskTrackers() {
-		return (this.localInstance == null) ? 0 : 1; // this instance manager can have at most one TaskTracker
+		return localInstances.size();
 	}
 }
