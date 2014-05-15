@@ -4,6 +4,7 @@ import eu.stratosphere.api.common.aggregators.ConvergenceCriterion;
 import eu.stratosphere.types.LongValue;
 
 
+@SuppressWarnings("serial")
 public class UpdatedElementsCostModelConvergence implements ConvergenceCriterion<LongValue> {
 
 	/**
@@ -14,7 +15,7 @@ public class UpdatedElementsCostModelConvergence implements ConvergenceCriterion
 	@Override
 	public boolean isConverged(int iteration, LongValue value) {		
 		System.out.println("[convergence check] Elements: " + value.getValue());
-		return (value.getValue() == 3);
+		return (value.getValue() < 5);
 	}
 
 }

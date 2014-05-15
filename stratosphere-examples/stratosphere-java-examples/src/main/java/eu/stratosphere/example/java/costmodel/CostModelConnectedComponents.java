@@ -1,19 +1,18 @@
 package eu.stratosphere.example.java.costmodel;
 
 import java.util.Iterator;
-
 import eu.stratosphere.api.common.ProgramDescription;
 import eu.stratosphere.api.common.aggregators.LongSumAggregator;
 import eu.stratosphere.api.java.DataSet;
-import eu.stratosphere.api.java.DeltaIterativeDataSet;
+import eu.stratosphere.api.java.DeltaIteration;
 import eu.stratosphere.api.java.ExecutionEnvironment;
 import eu.stratosphere.api.java.IterativeDataSet;
 import eu.stratosphere.api.java.aggregation.Aggregations;
 import eu.stratosphere.api.java.functions.FlatMapFunction;
 import eu.stratosphere.api.java.functions.GroupReduceFunction;
 import eu.stratosphere.api.java.functions.JoinFunction;
-import eu.stratosphere.api.java.functions.KeySelector;
 import eu.stratosphere.api.java.functions.MapFunction;
+import eu.stratosphere.api.java.operators.translation.JavaPlan;
 import eu.stratosphere.api.java.tuple.Tuple1;
 import eu.stratosphere.api.java.tuple.Tuple2;
 import eu.stratosphere.client.LocalExecutor;
@@ -33,7 +32,7 @@ import eu.stratosphere.util.Collector;
 public class CostModelConnectedComponents implements ProgramDescription {
 	
 	private static final String UPDATED_ELEMENTS_AGGR = "updated.elements.aggr";
-	private static int bulkFinishIteration;
+	private static int bulkIterationFinish;
 
 	public static void main(String... args) throws Exception {
 		if (args.length < 4) {
@@ -45,22 +44,23 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		
 		ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 		
-		DataSet<Long> vertices = env.readCsvFile(args[0]).types(Long.class).map(new MapFunction<Tuple1<Long>, Long>() {
-			public Long map(Tuple1<Long> value) { return value.f0; } });
+		env.setDegreeOfParallelism(1);
 		
-		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter(' ').types(Long.class, Long.class);
+		DataSet<Tuple1<Long>> vertices = env.readCsvFile(args[0]).types(Long.class);
+		
+		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter('\t').types(Long.class, Long.class);
 		
 		DataSet<Tuple2<Long, Long>> result = doCostConnectedComponents(vertices, edges, maxIterations);
 		
 		result.writeAsCsv(args[2], "\n", " ");
 		
-		//env.execute("Cost Connected Components");
-		
-		LocalExecutor.execute(env.createProgramPlan("Cost Connected Components"));
+//		JavaPlan plan = env.createProgramPlan("Cost CC");
+//		LocalExecutor.execute(plan);
+		env.execute("Cost Connected Components");
 		
 	}
 	
-	public static DataSet<Tuple2<Long, Long>> doCostConnectedComponents(DataSet<Long> vertices, 
+	public static DataSet<Tuple2<Long, Long>> doCostConnectedComponents(DataSet<Tuple1<Long>> vertices, 
 			DataSet<Tuple2<Long, Long>> edges, int maxIterations) {
 		
 		/**
@@ -68,20 +68,20 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		 */
 		
 		// assign the initial components (equal to the vertex id.
-		DataSet<Tuple2<Long, Long>> verticesWithInitialId = vertices.map(new DuplicateValue<Long>());
+		DataSet<Tuple2<Long, Long>> verticesWithInitialId = vertices.map(new DuplicateValue());
 		
 		// open a bulk iteration
 		IterativeDataSet<Tuple2<Long, Long>> iteration = verticesWithInitialId.iterate(maxIterations);
 		
 		// apply the step logic: join with the edges, select the minimum neighbor, update the component if the candidate is smaller
 		DataSet<Tuple2<Long, Long>> changes = iteration.join(edges).where(0).equalTo(0).with(new NeighborWithComponentIDJoin())
-		                                               .groupBy(0).aggregate(Aggregations.MIN, 1)
-		                                               .join(iteration).where(0).equalTo(0)
+														.groupBy(0).aggregate(Aggregations.MIN, 1)
+		                                                .join(iteration).where(0).equalTo(0)
 		                                                .flatMap(new ComponentIdFilter());
 		
 		// register updated elements aggregator and cost model convergence criterion
-		iteration.registerAggregationConvergenceCriterion(UPDATED_ELEMENTS_AGGR, LongSumAggregator.class, 
-				UpdatedElementsCostModelConvergence.class);
+		iteration.registerAggregationConvergenceCriterion(UPDATED_ELEMENTS_AGGR, new LongSumAggregator(), 
+				new UpdatedElementsCostModelConvergence());
 		
 		// close the bulk iteration
 		DataSet<Tuple2<Long, Long>> bulkResult = iteration.closeWith(changes);
@@ -89,28 +89,24 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		/**
 		 *  === start dependency iterations === 
 		 */
-		DeltaIterativeDataSet<Tuple2<Long, Long>, Tuple2<Long, Long>> depIteration = 
-				bulkResult.iterateDelta(bulkResult, maxIterations - bulkFinishIteration + 1, 0);
+		DeltaIteration<Tuple2<Long, Long>, Tuple2<Long, Long>> depIteration = 
+				bulkResult.iterateDelta(bulkResult, 2, 0);
 		
-		DataSet<Long> candidates = depIteration.join(edges).where(0).equalTo(0)
-				.with(new FindCandidatesJoin())
-				.groupBy(new KeySelector<Long, Long>() { 
-                    public Long getKey(Long id) { return id; } 
-                  }).reduceGroup(new RemoveDuplicatesReduce());
+		System.out.println("Printing bulk result...");
+		bulkResult.print();
+		
+		DataSet<Tuple1<Long>> candidates = depIteration.getWorkset().join(edges).where(0).equalTo(0)
+				.projectSecond(1).types(Long.class);
+		
+		DataSet<Tuple1<Long>> grouped = candidates.groupBy(0).reduceGroup(new RemoveDuplicatesReduce());
 		
 		DataSet<Tuple2<Long, Long>> candidatesDependencies = 
-				candidates.join(edges)
-				.where(new KeySelector<Long, Long>() { 
-                    public Long getKey(Long id) { return id; } 
-                  }).equalTo(new KeySelector<Tuple2<Long, Long>, Long>() { 
-                    public Long getKey(Tuple2<Long, Long> vertexWithId) 
-                    { return vertexWithId.f1; } 
-                  }).with(new FindCandidatesDependenciesJoin());
+				grouped.join(edges).where(0).equalTo(1).projectSecond(0, 1).types(Long.class, Long.class);
 		
 		DataSet<Tuple2<Long, Long>> verticesWithNewComponents = 
 				candidatesDependencies.join(depIteration.getSolutionSet()).where(0).equalTo(0)
 				.with(new NeighborWithComponentIDJoinDep())
-				.groupBy(0).reduceGroup(new MinimumReduce());
+				.groupBy(0).aggregate(Aggregations.MIN, 1);
 		
 		DataSet<Tuple2<Long, Long>> updatedComponentId = 
 				verticesWithNewComponents.join(depIteration.getSolutionSet()).where(0).equalTo(0)
@@ -124,11 +120,11 @@ public class CostModelConnectedComponents implements ProgramDescription {
 	/**
 	 * Function that turns a value into a 2-tuple where both fields are that value.
 	 */
-	public static final class DuplicateValue<T> extends MapFunction<T, Tuple2<T, T>> {
-		
+	public static final class DuplicateValue extends MapFunction<Tuple1<Long>, Tuple2<Long, Long>> {
+
 		@Override
-		public Tuple2<T, T> map(T value) {
-			return new Tuple2<T, T>(value, value);
+		public Tuple2<Long, Long> map(Tuple1<Long> value) throws Exception {
+			return new Tuple2<Long, Long>(value.f0, value.f0);
 		}
 	}
 	
@@ -155,7 +151,9 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		@Override
 		public void open(Configuration conf) {
 			updatedElementsAggr = getIterationRuntimeContext().getIterationAggregator(UPDATED_ELEMENTS_AGGR);
-			bulkFinishIteration = getIterationRuntimeContext().getSuperstepNumber();
+			int superstep = getIterationRuntimeContext().getSuperstepNumber();
+			bulkIterationFinish = superstep;
+			System.out.println("Iteration " + superstep);
 		}
 		
 		@Override
@@ -171,76 +169,23 @@ public class CostModelConnectedComponents implements ProgramDescription {
 	}
 	
 	/* == Dependency iteration classes == */
-	
-	public static final class FindCandidatesJoin extends JoinFunction
-		<Tuple2<Long, Long>, Tuple2<Long, Long>, Long> {
-	
-		@Override
-		public void open(Configuration params) {
-			int step = getIterationRuntimeContext().getSuperstepNumber();
-			System.out.println("Dependency Iteration Step " + step);
-		}
+
+	public static final class RemoveDuplicatesReduce extends GroupReduceFunction<Tuple1<Long>, Tuple1<Long>> {
 		
 		@Override
-		public Long join(Tuple2<Long, Long> vertexWithCompId,
-				Tuple2<Long, Long> edge) throws Exception {
-			// emit target vertex
-			return edge.f1;
-		}
-	}
-
-	public static final class RemoveDuplicatesReduce extends GroupReduceFunction<Long, Long> {
-	
-		@Override
-		public void reduce(Iterator<Long> values, Collector<Long> out) throws Exception {
-				out.collect(values.next());
-		}
-	}
-	
-	public static final class FindCandidatesDependenciesJoin extends JoinFunction
-		<Long, Tuple2<Long, Long>, Tuple2<Long, Long>> {
-		
-		@Override
-		public Tuple2<Long, Long> join(Long candidateId, Tuple2<Long, Long> edge) throws Exception {
-			return edge;
-		}
-	}
-	
-	public static final class MinimumReduce extends GroupReduceFunction
-		<Tuple2<Long, Long>, Tuple2<Long, Long>> {
-
-		final Tuple2<Long, Long> resultVertex = new Tuple2<Long, Long>();
-
-		@Override
-		public void reduce(Iterator<Tuple2<Long, Long>> values,
-				Collector<Tuple2<Long, Long>> out) throws Exception {
-	
-			final Tuple2<Long, Long> first = values.next();		
-			final Long vertexId = first.f0;
-			Long minimumCompId = first.f1;
+		public void reduce(Iterator<Tuple1<Long>> values,
+				Collector<Tuple1<Long>> out) throws Exception {
+			out.collect(values.next());
 			
-			while ( values.hasNext() ) {
-				Long candidateCompId = values.next().f1;
-				if ( candidateCompId < minimumCompId ) {
-					minimumCompId = candidateCompId;
-				}
-			}
-			resultVertex.setField(vertexId, 0);
-			resultVertex.setField(minimumCompId, 1);
-	
-			out.collect(resultVertex);
 		}
 	}
 	
 	public static final class NeighborWithComponentIDJoinDep extends JoinFunction
 		<Tuple2<Long, Long>, Tuple2<Long, Long>, Tuple2<Long, Long>> {
-	
-		private static final long serialVersionUID = 1L;
 		
 		@Override
 		public Tuple2<Long, Long> join(Tuple2<Long, Long> edge,
 				Tuple2<Long, Long> vertexWithCompId) throws Exception {
-			
 			vertexWithCompId.setField(edge.f1, 0);
 			return vertexWithCompId;
 		}
@@ -249,6 +194,11 @@ public class CostModelConnectedComponents implements ProgramDescription {
 	public static final class MinimumIdFilter extends FlatMapFunction
 		<Tuple2<Tuple2<Long, Long>, Tuple2<Long, Long>>, Tuple2<Long, Long>> {
 	
+		@Override
+		public void open(Configuration conf) {
+			System.out.println("Dependency Iteration " + bulkIterationFinish);
+		}
+		
 		@Override
 		public void flatMap(
 				Tuple2<Tuple2<Long, Long>, Tuple2<Long, Long>> vertexWithNewAndOldId,
@@ -259,6 +209,7 @@ public class CostModelConnectedComponents implements ProgramDescription {
 			}
 		}
 	}
+
 
 	@Override
 	public String getDescription() {
