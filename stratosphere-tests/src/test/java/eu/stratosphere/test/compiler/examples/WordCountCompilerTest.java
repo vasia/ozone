@@ -32,13 +32,13 @@ import eu.stratosphere.compiler.plan.Channel;
 import eu.stratosphere.compiler.plan.OptimizedPlan;
 import eu.stratosphere.compiler.plan.SingleInputPlanNode;
 import eu.stratosphere.compiler.plan.SinkPlanNode;
-import eu.stratosphere.example.java.record.wordcount.WordCount;
-import eu.stratosphere.example.java.record.wordcount.WordCount.CountWords;
-import eu.stratosphere.example.java.record.wordcount.WordCount.TokenizeLine;
 import eu.stratosphere.pact.runtime.shipping.ShipStrategyType;
 import eu.stratosphere.pact.runtime.task.DriverStrategy;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.test.compiler.CompilerTestBase;
+import eu.stratosphere.test.recordJobs.wordcount.WordCount;
+import eu.stratosphere.test.recordJobs.wordcount.WordCount.CountWords;
+import eu.stratosphere.test.recordJobs.wordcount.WordCount.TokenizeLine;
 import eu.stratosphere.types.IntValue;
 import eu.stratosphere.types.StringValue;
 
@@ -90,7 +90,7 @@ public class WordCountCompilerTest extends CompilerTestBase {
 			
 			// check the combiner
 			SingleInputPlanNode combiner = (SingleInputPlanNode) reducer.getPredecessor();
-			Assert.assertEquals(DriverStrategy.PARTIAL_GROUP, combiner.getDriverStrategy());
+			Assert.assertEquals(DriverStrategy.SORTED_GROUP_COMBINE, combiner.getDriverStrategy());
 			Assert.assertEquals(l, combiner.getKeys());
 			Assert.assertEquals(ShipStrategyType.FORWARD, combiner.getInput().getShipStrategy());
 			
@@ -163,7 +163,7 @@ public class WordCountCompilerTest extends CompilerTestBase {
 			
 			// check the combiner
 			SingleInputPlanNode combiner = (SingleInputPlanNode) reducer.getPredecessor();
-			Assert.assertEquals(DriverStrategy.PARTIAL_GROUP, combiner.getDriverStrategy());
+			Assert.assertEquals(DriverStrategy.SORTED_GROUP_COMBINE, combiner.getDriverStrategy());
 			Assert.assertEquals(l, combiner.getKeys());
 			Assert.assertEquals(ShipStrategyType.FORWARD, combiner.getInput().getShipStrategy());
 		} catch (Exception e) {

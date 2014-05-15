@@ -54,11 +54,11 @@ public class CombineTaskExternalITCase extends DriverTestBase<GenericGroupReduce
 		addInputComparator(this.comparator);
 		setOutput(this.outList);
 		
-		getTaskConfig().setDriverStrategy(DriverStrategy.PARTIAL_GROUP);
+		getTaskConfig().setDriverStrategy(DriverStrategy.SORTED_GROUP_COMBINE);
 		getTaskConfig().setMemoryDriver(COMBINE_MEM);
 		getTaskConfig().setFilehandlesDriver(2);
 		
-		final CombineDriver<Record> testTask = new CombineDriver<Record>();
+		final GroupReduceCombineDriver<Record> testTask = new GroupReduceCombineDriver<Record>();
 		
 		try {
 			testDriver(testTask, MockCombiningReduceStub.class);
@@ -107,11 +107,11 @@ public class CombineTaskExternalITCase extends DriverTestBase<GenericGroupReduce
 		addInputComparator(this.comparator);
 		setOutput(this.outList);
 		
-		getTaskConfig().setDriverStrategy(DriverStrategy.PARTIAL_GROUP);
+		getTaskConfig().setDriverStrategy(DriverStrategy.SORTED_GROUP_COMBINE);
 		getTaskConfig().setMemoryDriver(COMBINE_MEM);
 		getTaskConfig().setFilehandlesDriver(2);
 		
-		final CombineDriver<Record> testTask = new CombineDriver<Record>();
+		final GroupReduceCombineDriver<Record> testTask = new GroupReduceCombineDriver<Record>();
 
 		try {
 			testDriver(testTask, MockCombiningReduceStub.class);

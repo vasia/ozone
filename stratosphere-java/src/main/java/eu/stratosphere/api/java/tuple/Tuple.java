@@ -15,8 +15,8 @@ package eu.stratosphere.api.java.tuple;
 /**
  * The base class of all tuples. Tuples have a fix length and contain a set of fields,
  * which may all be of different types. Because Tuples are strongly typed, each distinct
- * tuple length is represented by its own class. Tuples exists with up to 22 fields and
- * are described in the classes {@link Tuple1} to {@link Tuple22}.
+ * tuple length is represented by its own class. Tuples exists with up to 25 fields and
+ * are described in the classes {@link Tuple1} to {@link Tuple25}.
  * <p>
  * The fields in the tuples may be accessed directly a public fields, or via position (zero indexed)
  * {@link #getField(int)}.
@@ -28,7 +28,7 @@ public abstract class Tuple implements java.io.Serializable {
 	
 	private static final long serialVersionUID = 1L;
 	
-	public static final int MAX_ARITY = 22;
+	public static final int MAX_ARITY = 25;
 	
 	
 	/**
@@ -48,15 +48,6 @@ public abstract class Tuple implements java.io.Serializable {
 	 * @throws IndexOutOfBoundsException Thrown, if the position is negative, or equal to, or larger than the number of fields.
 	 */
 	public abstract <T> void setField(T value, int pos);
-	
-	/**
-	 * This method is similar to the {@link #getField(int)} method. Internally, it does not do a switch on the
-	 * position, but it uses an offset lookup table. For long tuple types, this may be faster.
-	 * 
-	 * @param pos The position of the field, zero indexed.
-	 * @return The field at the specified position.
-	 */
-	public abstract <T> T getFieldFast(int pos);
 
 	/**
 	 * Gets the number of field in the tuple (the tuple arity).

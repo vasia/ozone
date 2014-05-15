@@ -29,7 +29,7 @@ import eu.stratosphere.pact.runtime.shipping.ShipStrategyType;
 import eu.stratosphere.pact.runtime.task.DriverStrategy;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.test.compiler.CompilerTestBase;
-import eu.stratosphere.test.testPrograms.KMeansSingleStep;
+import eu.stratosphere.test.recordJobs.kmeans.KMeansSingleStep;
 
 
 public class KMeansSingleStepTest extends CompilerTestBase {
@@ -102,7 +102,7 @@ public class KMeansSingleStepTest extends CompilerTestBase {
 		Assert.assertNotNull(combiner);
 		assertEquals(ShipStrategyType.FORWARD, combiner.getInput().getShipStrategy());
 		assertEquals(LocalStrategy.NONE, combiner.getInput().getLocalStrategy());
-		assertEquals(DriverStrategy.PARTIAL_GROUP, combiner.getDriverStrategy());
+		assertEquals(DriverStrategy.SORTED_GROUP_COMBINE, combiner.getDriverStrategy());
 		assertNull(combiner.getInput().getLocalStrategyKeys());
 		assertNull(combiner.getInput().getLocalStrategySortOrder());
 		assertEquals(set0, combiner.getKeys());
@@ -110,7 +110,7 @@ public class KMeansSingleStepTest extends CompilerTestBase {
 		// check the reducer
 		assertEquals(ShipStrategyType.PARTITION_HASH, reducer.getInput().getShipStrategy());
 		assertEquals(LocalStrategy.COMBININGSORT, reducer.getInput().getLocalStrategy());
-		assertEquals(DriverStrategy.SORTED_GROUP, reducer.getDriverStrategy());
+		assertEquals(DriverStrategy.SORTED_GROUP_REDUCE, reducer.getDriverStrategy());
 		assertEquals(set0, reducer.getKeys());
 		assertEquals(set0, reducer.getInput().getLocalStrategyKeys());
 		assertTrue(Arrays.equals(reducer.getInput().getLocalStrategySortOrder(), reducer.getSortOrders()));

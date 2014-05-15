@@ -21,7 +21,7 @@ import java.io.IOException;
 
 public class TestFileUtils {
 	
-	private static final String FILE_PREFIX = "pact_test_";
+	private static final String FILE_PREFIX = "stratosphere_test_";
 	
 	private static final String FILE_SUFFIX = ".tmp";
 
@@ -34,6 +34,24 @@ public class TestFileUtils {
 			for (; bytes > 0; bytes--) {
 				out.write(0);
 			}
+		} finally {
+			out.close();
+		}
+		return f.toURI().toString();
+	}
+	
+	public static String createTempFileInDirectory(String dir, String contents) throws IOException {
+		File f;
+		do {
+			f = new File(dir + "/" + randomFileName());
+		} while (f.exists());
+		f.getParentFile().mkdirs();
+		f.createNewFile();
+		f.deleteOnExit();
+		
+		BufferedWriter out = new BufferedWriter(new FileWriter(f));
+		try { 
+			out.write(contents);
 		} finally {
 			out.close();
 		}
@@ -81,16 +99,20 @@ public class TestFileUtils {
 	}
 	
 	public static String createTempFileDir(String ... contents) throws IOException {
+		return createTempFileDirExtension(FILE_SUFFIX, contents);
+	}
+	
+	public static String createTempFileDirExtension(String fileExtension, String ... contents ) throws IOException {
 		File tempDir = new File(System.getProperty("java.io.tmpdir"));
 		File f = null;
 		do {
-			f = new File(tempDir, randomFileName());
+			f = new File(tempDir, randomFileName(FILE_SUFFIX));
 		} while (f.exists());
 		f.mkdirs();
 		f.deleteOnExit();
 		
 		for (String s : contents) {
-			File child = new File(f, randomFileName());
+			File child = new File(f, randomFileName(fileExtension));
 			child.deleteOnExit();
 		
 			BufferedWriter out = new BufferedWriter(new FileWriter(child));
@@ -104,7 +126,10 @@ public class TestFileUtils {
 	}
 	
 	public static String randomFileName() {
-		return FILE_PREFIX + ((int) (Math.random() * Integer.MAX_VALUE)) + FILE_SUFFIX;
+		return randomFileName(FILE_SUFFIX);
+	}
+	public static String randomFileName(String fileSuffix) {
+		return FILE_PREFIX + ((int) (Math.random() * Integer.MAX_VALUE)) + fileSuffix;
 	}
 
 	// ------------------------------------------------------------------------

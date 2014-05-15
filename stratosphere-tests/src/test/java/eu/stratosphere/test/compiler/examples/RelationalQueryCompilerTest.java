@@ -26,11 +26,11 @@ import eu.stratosphere.compiler.plan.DualInputPlanNode;
 import eu.stratosphere.compiler.plan.OptimizedPlan;
 import eu.stratosphere.compiler.plan.SingleInputPlanNode;
 import eu.stratosphere.compiler.plan.SinkPlanNode;
-import eu.stratosphere.example.java.record.relational.TPCHQuery3;
 import eu.stratosphere.pact.runtime.shipping.ShipStrategyType;
 import eu.stratosphere.pact.runtime.task.DriverStrategy;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.test.compiler.CompilerTestBase;
+import eu.stratosphere.test.recordJobs.relational.TPCHQuery3;
 
 /**
  * Tests TPCH Q3 (simplified) under various input conditions.
@@ -229,10 +229,10 @@ public class RelationalQueryCompilerTest extends CompilerTestBase {
 		
 		// check the driver strategies that are always fix
 		Assert.assertEquals(DriverStrategy.COLLECTOR_MAP, map.getDriverStrategy());
-		Assert.assertEquals(DriverStrategy.SORTED_GROUP, reducer.getDriverStrategy());
+		Assert.assertEquals(DriverStrategy.SORTED_GROUP_REDUCE, reducer.getDriverStrategy());
 		Assert.assertEquals(DriverStrategy.NONE, sink.getDriverStrategy());
 		if (combiner != null) {
-			Assert.assertEquals(DriverStrategy.PARTIAL_GROUP, combiner.getDriverStrategy());
+			Assert.assertEquals(DriverStrategy.SORTED_GROUP_COMBINE, combiner.getDriverStrategy());
 			Assert.assertEquals(LocalStrategy.NONE, combiner.getInput().getLocalStrategy());
 		}
 	}

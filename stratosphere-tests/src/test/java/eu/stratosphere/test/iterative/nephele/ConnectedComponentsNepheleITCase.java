@@ -50,13 +50,13 @@ import eu.stratosphere.pact.runtime.task.BuildSecondCachedMatchDriver;
 import eu.stratosphere.pact.runtime.task.DriverStrategy;
 import eu.stratosphere.pact.runtime.task.CollectorMapDriver;
 import eu.stratosphere.pact.runtime.task.JoinWithSolutionSetSecondDriver;
-import eu.stratosphere.pact.runtime.task.ReduceDriver;
+import eu.stratosphere.pact.runtime.task.GroupReduceDriver;
 import eu.stratosphere.pact.runtime.task.chaining.ChainedCollectorMapDriver;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.pact.runtime.task.util.TaskConfig;
-import eu.stratosphere.test.testPrograms.WorksetConnectedComponents.MinimumComponentIDReduce;
-import eu.stratosphere.test.testPrograms.WorksetConnectedComponents.NeighborWithComponentIDJoin;
-import eu.stratosphere.test.testPrograms.WorksetConnectedComponents.UpdateComponentIdMatch;
+import eu.stratosphere.test.recordJobs.graph.WorksetConnectedComponents.MinimumComponentIDReduce;
+import eu.stratosphere.test.recordJobs.graph.WorksetConnectedComponents.NeighborWithComponentIDJoin;
+import eu.stratosphere.test.recordJobs.graph.WorksetConnectedComponents.UpdateComponentIdMatch;
 import eu.stratosphere.test.testdata.ConnectedComponentsData;
 import eu.stratosphere.types.LongValue;
 import eu.stratosphere.types.Record;
@@ -304,8 +304,8 @@ public class ConnectedComponentsNepheleITCase extends RecordAPITestBase {
 			intermediateConfig.setOutputSerializer(serializer);
 			intermediateConfig.addOutputShipStrategy(ShipStrategyType.FORWARD);
 
-			intermediateConfig.setDriver(ReduceDriver.class);
-			intermediateConfig.setDriverStrategy(DriverStrategy.SORTED_GROUP);
+			intermediateConfig.setDriver(GroupReduceDriver.class);
+			intermediateConfig.setDriverStrategy(DriverStrategy.SORTED_GROUP_REDUCE);
 			intermediateConfig.setDriverComparator(comparator, 0);
 			intermediateConfig.setStubWrapper(
 				new UserCodeClassWrapper<MinimumComponentIDReduce>(MinimumComponentIDReduce.class));

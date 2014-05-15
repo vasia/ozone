@@ -12,7 +12,11 @@
  **********************************************************************************************************************/
 package eu.stratosphere.api.common.io;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URI;
 
 import org.apache.log4j.Level;
 import org.junit.Assert;
@@ -22,6 +26,7 @@ import org.junit.Test;
 import eu.stratosphere.api.common.io.FileInputFormat.FileBaseStatistics;
 import eu.stratosphere.api.common.io.statistics.BaseStatistics;
 import eu.stratosphere.configuration.Configuration;
+import eu.stratosphere.core.fs.FileInputSplit;
 import eu.stratosphere.testutils.TestFileUtils;
 import eu.stratosphere.types.IntValue;
 import eu.stratosphere.util.LogUtils;
@@ -181,6 +186,109 @@ public class FileInputFormatTest {
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			Assert.fail(ex.getMessage());
+		}
+	}
+	
+	// ---- Tests for .deflate ---------
+	
+	/**
+	 * Create directory with files with .deflate extension and see if it creates a split
+	 * for each file. Each split has to start from the beginning.
+	 */
+	@Test
+	public void testFileInputSplit() {
+		try {
+			String tempFile = TestFileUtils.createTempFileDirExtension(".deflate", "some", "stupid", "meaningless", "files");
+			final DummyFileInputFormat format = new DummyFileInputFormat();
+			format.setFilePath(tempFile);
+			format.configure(new Configuration());
+			FileInputSplit[] splits = format.createInputSplits(2);
+			Assert.assertEquals(4, splits.length);
+			for(FileInputSplit split : splits) {
+				Assert.assertEquals(-1L, split.getLength()); // unsplittable deflate files have this size as a flag for "read whole file"
+				Assert.assertEquals(0L, split.getStart()); // always read from the beginning.
+			}
+			
+			// test if this also works for "mixed" directories
+			TestFileUtils.createTempFileInDirectory(tempFile.replace("file:", ""), "this creates a test file with a random extension (at least not .deflate)");
+			
+			final DummyFileInputFormat formatMixed = new DummyFileInputFormat();
+			formatMixed.setFilePath(tempFile);
+			formatMixed.configure(new Configuration());
+			FileInputSplit[] splitsMixed = formatMixed.createInputSplits(2);
+			Assert.assertEquals(5, splitsMixed.length);
+			for(FileInputSplit split : splitsMixed) {
+				if(split.getPath().getName().endsWith(".deflate")) {
+					Assert.assertEquals(-1L, split.getLength()); // unsplittable deflate files have this size as a flag for "read whole file"
+					Assert.assertEquals(0L, split.getStart()); // always read from the beginning.
+				} else {
+					Assert.assertEquals(0L, split.getStart());
+					Assert.assertTrue("split size not correct", split.getLength() > 0);
+				}
+			}
+			
+			
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			Assert.fail(ex.getMessage());
+		}
+	}
+	
+	@Test
+	public void testIgnoredUnderscoreFiles() {
+		try {
+			final String contents = "CONTENTS";
+			
+			// create some accepted, some ignored files
+			
+			File tempDir = new File(System.getProperty("java.io.tmpdir"));
+			File f = null;
+			do {
+				f = new File(tempDir, TestFileUtils.randomFileName(""));
+			} while (f.exists());
+			f.mkdirs();
+			f.deleteOnExit();
+			
+			File child1 = new File(f, "dataFile1.txt");
+			File child2 = new File(f, "another_file.bin");
+			File luigiFile = new File(f, "_luigi");
+			File success = new File(f, "_SUCCESS");
+			
+			File[] files = { child1, child2, luigiFile, success };
+			
+			for (File child : files) {
+				child.deleteOnExit();
+			
+				BufferedWriter out = new BufferedWriter(new FileWriter(child));
+				try { 
+					out.write(contents);
+				} finally {
+					out.close();
+				}
+			}
+			
+			// test that only the valid files are accepted
+			
+			final DummyFileInputFormat format = new DummyFileInputFormat();
+			format.setFilePath(f.toURI().toString());
+			format.configure(new Configuration());
+			FileInputSplit[] splits = format.createInputSplits(1);
+			
+			Assert.assertEquals(2, splits.length);
+			
+			final URI uri1 = splits[0].getPath().toUri();
+			final URI uri2 = splits[1].getPath().toUri();
+
+			final URI childUri1 = child1.toURI();
+			final URI childUri2 = child2.toURI();
+			
+			Assert.assertTrue(  (uri1.equals(childUri1) && uri2.equals(childUri2)) ||
+								(uri1.equals(childUri2) && uri2.equals(childUri1)) );
+		}
+		catch (Exception e) {
+			System.err.println(e.getMessage());
+			e.printStackTrace();
+			Assert.fail(e.getMessage());
 		}
 	}
 	

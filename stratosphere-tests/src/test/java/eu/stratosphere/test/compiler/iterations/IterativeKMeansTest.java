@@ -12,7 +12,10 @@
  **********************************************************************************************************************/
 package eu.stratosphere.test.compiler.iterations;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
@@ -27,11 +30,11 @@ import eu.stratosphere.compiler.plan.OptimizedPlan;
 import eu.stratosphere.compiler.plan.SingleInputPlanNode;
 import eu.stratosphere.compiler.plan.SinkPlanNode;
 import eu.stratosphere.compiler.plantranslate.NepheleJobGraphGenerator;
-import eu.stratosphere.example.java.record.kmeans.KMeans;
 import eu.stratosphere.pact.runtime.shipping.ShipStrategyType;
 import eu.stratosphere.pact.runtime.task.DriverStrategy;
 import eu.stratosphere.pact.runtime.task.util.LocalStrategy;
 import eu.stratosphere.test.compiler.CompilerTestBase;
+import eu.stratosphere.test.recordJobs.kmeans.KMeansBroadcast;
 
 
 public class IterativeKMeansTest extends CompilerTestBase {
@@ -55,7 +58,7 @@ public class IterativeKMeansTest extends CompilerTestBase {
 	@Test
 	public void testCompileKMeansSingleStepWithStats() {
 		
-		KMeans kmi = new KMeans();
+		KMeansBroadcast kmi = new KMeansBroadcast();
 		Plan p = kmi.getPlan(String.valueOf(DEFAULT_PARALLELISM), IN_FILE, IN_FILE, OUT_FILE, String.valueOf(20));
 		
 		// set the statistics
@@ -74,7 +77,7 @@ public class IterativeKMeansTest extends CompilerTestBase {
 	@Test
 	public void testCompileKMeansSingleStepWithOutStats() {
 		
-		KMeans kmi = new KMeans();
+		KMeansBroadcast kmi = new KMeansBroadcast();
 		Plan p = kmi.getPlan(String.valueOf(DEFAULT_PARALLELISM), IN_FILE, IN_FILE, OUT_FILE, String.valueOf(20));
 		
 		OptimizedPlan plan = compileNoStats(p);
@@ -131,7 +134,7 @@ public class IterativeKMeansTest extends CompilerTestBase {
 		assertTrue(combiner.getInput().isOnDynamicPath());
 		
 		assertEquals(LocalStrategy.NONE, combiner.getInput().getLocalStrategy());
-		assertEquals(DriverStrategy.PARTIAL_GROUP, combiner.getDriverStrategy());
+		assertEquals(DriverStrategy.SORTED_GROUP_COMBINE, combiner.getDriverStrategy());
 		assertNull(combiner.getInput().getLocalStrategyKeys());
 		assertNull(combiner.getInput().getLocalStrategySortOrder());
 		assertEquals(set0, combiner.getKeys());
@@ -140,7 +143,7 @@ public class IterativeKMeansTest extends CompilerTestBase {
 		assertEquals(ShipStrategyType.PARTITION_HASH, reducer.getInput().getShipStrategy());
 		assertTrue(reducer.getInput().isOnDynamicPath());
 		assertEquals(LocalStrategy.COMBININGSORT, reducer.getInput().getLocalStrategy());
-		assertEquals(DriverStrategy.SORTED_GROUP, reducer.getDriverStrategy());
+		assertEquals(DriverStrategy.SORTED_GROUP_REDUCE, reducer.getDriverStrategy());
 		assertEquals(set0, reducer.getKeys());
 		assertEquals(set0, reducer.getInput().getLocalStrategyKeys());
 		assertTrue(Arrays.equals(reducer.getInput().getLocalStrategySortOrder(), reducer.getSortOrders()));
