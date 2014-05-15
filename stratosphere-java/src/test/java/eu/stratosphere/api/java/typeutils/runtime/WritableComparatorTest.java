@@ -17,33 +17,33 @@ package eu.stratosphere.api.java.typeutils.runtime;
 import eu.stratosphere.api.common.typeutils.ComparatorTestBase;
 import eu.stratosphere.api.common.typeutils.TypeComparator;
 import eu.stratosphere.api.common.typeutils.TypeSerializer;
-import eu.stratosphere.types.StringValue;
 
-public class ValueComparatorTest extends ComparatorTestBase<StringValue> {
-
-	StringValue[] data = new StringValue[]{
-		new StringValue(""),
-		new StringValue("Lorem Ipsum Dolor Omit Longer"),
-		new StringValue("aaaa"),
-		new StringValue("abcd"),
-		new StringValue("abce"),
-		new StringValue("abdd"),
-		new StringValue("accd"),
-		new StringValue("bbcd")
+public class WritableComparatorTest extends ComparatorTestBase<StringArrayWritable> {	
+	
+	StringArrayWritable[] data = new StringArrayWritable[]{
+			new StringArrayWritable(new String[]{}),
+			new StringArrayWritable(new String[]{""}),
+			new StringArrayWritable(new String[]{"a","a"}),
+			new StringArrayWritable(new String[]{"a","b"}),
+			new StringArrayWritable(new String[]{"c","c"}),
+			new StringArrayWritable(new String[]{"d","f"}),
+			new StringArrayWritable(new String[]{"d","m"}),
+			new StringArrayWritable(new String[]{"z","x"}),
+			new StringArrayWritable(new String[]{"a","a", "a"})
 	};
-
+	
 	@Override
-	protected TypeComparator<StringValue> createComparator(boolean ascending) {
-		return new ValueComparator<StringValue>(ascending, StringValue.class);
+	protected TypeComparator<StringArrayWritable> createComparator(boolean ascending) {
+		return new WritableComparator<StringArrayWritable>(ascending, StringArrayWritable.class);
 	}
-
+	
 	@Override
-	protected TypeSerializer<StringValue> createSerializer() {
-		return new ValueSerializer<StringValue>(StringValue.class);
+	protected TypeSerializer<StringArrayWritable> createSerializer() {
+		return new WritableSerializer<StringArrayWritable>(StringArrayWritable.class);
 	}
-
+	
 	@Override
-	protected StringValue[] getSortedTestData() {
+	protected StringArrayWritable[] getSortedTestData() {
 		return data;
 	}
 }

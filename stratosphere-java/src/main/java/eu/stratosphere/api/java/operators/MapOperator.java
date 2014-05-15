@@ -26,38 +26,39 @@ import eu.stratosphere.api.java.typeutils.TypeExtractor;
  * @param <OUT> The type of the data set created by the operator.
  */
 public class MapOperator<IN, OUT> extends SingleInputUdfOperator<IN, OUT, MapOperator<IN, OUT>> {
-	
+
 	protected final MapFunction<IN, OUT> function;
-	
-	
+
+
 	public MapOperator(DataSet<IN> input, MapFunction<IN, OUT> function) {
 		super(input, TypeExtractor.getMapReturnTypes(function, input.getType()));
-		
+
 		if (function == null) {
 			throw new NullPointerException("Map function must not be null.");
 		}
-		
+
 		this.function = function;
 	}
 
 	@Override
-	protected Operator translateToDataFlow(Operator input) {
-		
+	protected eu.stratosphere.api.common.operators.SingleInputOperator<?> translateToDataFlow(Operator input) {
+
 		String name = getName() != null ? getName() : function.getClass().getName();
 		// create operator
 		PlanMapOperator<IN, OUT> po = new PlanMapOperator<IN, OUT>(function, name, getInputType(), getResultType());
 		// set input
 		po.setInput(input);
+
 		// set dop
-		if(this.getParallelism() > 0) {
+		if (getParallelism() > 0) {
 			// use specified dop
-			po.setDegreeOfParallelism(this.getParallelism());
+			po.setDegreeOfParallelism(getParallelism());
 		} else {
 			// if no dop has been specified, use dop of input operator to enable chaining
 			po.setDegreeOfParallelism(input.getDegreeOfParallelism());
 		}
-		
+
 		return po;
 	}
-	
+
 }
