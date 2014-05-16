@@ -35,40 +35,45 @@ public class CostModelConnectedComponents implements ProgramDescription {
 	private static int bulkIterationFinish;
 
 	public static void main(String... args) throws Exception {
-		if (args.length < 4) {
-			System.err.println("Parameters: <vertices-path> <edges-path> <result-path> <max-number-of-iterations>");
+		if (args.length < 6) {
+			System.err.println("Parameters: <vertices-path> <edges-path> <result-path> <max-number-of-iterations>" +
+					"<number-of-vertices> <avg-node-degree>");
 			return;
 		}
 		
 		final int maxIterations = Integer.parseInt(args[3]);
 		
+		final int numVertices = Integer.parseInt(args[4]);
+		
+		final double avgDegree = Double.parseDouble(args[5]);
+		
 		ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 		
 		env.setDegreeOfParallelism(1);
 		
-		DataSet<Tuple1<Long>> vertices = env.readCsvFile(args[0]).types(Long.class);
+		DataSet<Tuple2<Long, Long>> verticesWithInitialId = env.readCsvFile(args[0]).types(Long.class).map(new DuplicateValue());
 		
-		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter('\t').types(Long.class, Long.class);
+		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter('\t').types(Long.class, Long.class)
+				.flatMap(new InverseEdge());
 		
-		DataSet<Tuple2<Long, Long>> result = doCostConnectedComponents(vertices, edges, maxIterations);
+		DataSet<Tuple2<Long, Long>> result = doCostConnectedComponents(verticesWithInitialId, edges, maxIterations,
+				numVertices, avgDegree);
 		
 		result.writeAsCsv(args[2], "\n", " ");
 		
-//		JavaPlan plan = env.createProgramPlan("Cost CC");
-//		LocalExecutor.execute(plan);
-		env.execute("Cost Connected Components");
+		JavaPlan plan = env.createProgramPlan("Cost CC");
+		LocalExecutor.execute(plan);
+//		env.execute("Cost Connected Components");
 		
 	}
 	
-	public static DataSet<Tuple2<Long, Long>> doCostConnectedComponents(DataSet<Tuple1<Long>> vertices, 
-			DataSet<Tuple2<Long, Long>> edges, int maxIterations) {
+	public static DataSet<Tuple2<Long, Long>> doCostConnectedComponents(
+			DataSet<Tuple2<Long, Long>> verticesWithInitialId, DataSet<Tuple2<Long, Long>> edges, int maxIterations,
+			int numVertices, double avgDegree) {
 		
 		/**
 		 *  === start bulk iterations === 
 		 */
-		
-		// assign the initial components (equal to the vertex id.
-		DataSet<Tuple2<Long, Long>> verticesWithInitialId = vertices.map(new DuplicateValue());
 		
 		// open a bulk iteration
 		IterativeDataSet<Tuple2<Long, Long>> iteration = verticesWithInitialId.iterate(maxIterations);
@@ -81,7 +86,7 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		
 		// register updated elements aggregator and cost model convergence criterion
 		iteration.registerAggregationConvergenceCriterion(UPDATED_ELEMENTS_AGGR, new LongSumAggregator(), 
-				new UpdatedElementsCostModelConvergence());
+				new UpdatedElementsCostModelConvergence(numVertices, avgDegree));
 		
 		// close the bulk iteration
 		DataSet<Tuple2<Long, Long>> bulkResult = iteration.closeWith(changes);
@@ -91,10 +96,7 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		 */
 		DeltaIteration<Tuple2<Long, Long>, Tuple2<Long, Long>> depIteration = 
 				bulkResult.iterateDelta(bulkResult, 2, 0);
-		
-		System.out.println("Printing bulk result...");
-		bulkResult.print();
-		
+				
 		DataSet<Tuple1<Long>> candidates = depIteration.getWorkset().join(edges).where(0).equalTo(0)
 				.projectSecond(1).types(Long.class);
 		
@@ -129,6 +131,20 @@ public class CostModelConnectedComponents implements ProgramDescription {
 	}
 	
 	/**
+	 * Adds the inverse edge to the set of edges
+	 */
+	public static final class InverseEdge extends FlatMapFunction<Tuple2<Long, Long>, Tuple2<Long, Long>> {
+
+		@Override
+		public void flatMap(Tuple2<Long, Long> edge,
+				Collector<Tuple2<Long, Long>> out) throws Exception {
+			out.collect(edge);
+			out.collect(new Tuple2<Long, Long>(edge.f1, edge.f0));
+			
+		}
+	}
+	
+	/**
 	 * UDF that joins a (Vertex-ID, Component-ID) pair that represents the current component that
 	 * a vertex is associated with, with a (Source-Vertex-ID, Target-VertexID) edge. The function
 	 * produces a (Target-vertex-ID, Component-ID) pair.
@@ -153,7 +169,7 @@ public class CostModelConnectedComponents implements ProgramDescription {
 			updatedElementsAggr = getIterationRuntimeContext().getIterationAggregator(UPDATED_ELEMENTS_AGGR);
 			int superstep = getIterationRuntimeContext().getSuperstepNumber();
 			bulkIterationFinish = superstep;
-			System.out.println("Iteration " + superstep);
+			System.out.println("Bulk Iteration " + superstep);
 		}
 		
 		@Override
@@ -196,7 +212,7 @@ public class CostModelConnectedComponents implements ProgramDescription {
 	
 		@Override
 		public void open(Configuration conf) {
-			System.out.println("Dependency Iteration " + bulkIterationFinish);
+			System.out.println("Dependency Iteration " + getIterationRuntimeContext().getSuperstepNumber());
 		}
 		
 		@Override
@@ -213,7 +229,8 @@ public class CostModelConnectedComponents implements ProgramDescription {
 
 	@Override
 	public String getDescription() {
-		return "Parameters: <vertices-path> <edges-path> <result-path> <max-number-of-iterations>";
+		return "Parameters: <vertices-path> <edges-path> <result-path> <max-number-of-iterations> "
+				+ "<number-of-vertices> <avg-node-degree>";
 	}
 
 }
