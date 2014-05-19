@@ -11,24 +11,29 @@
  * specific language governing permissions and limitations under the License.
  **********************************************************************************************************************/
 
-package eu.stratosphere.api.common.functions;
+package eu.stratosphere.api.common;
 
-import java.util.Iterator;
-
-import eu.stratosphere.util.Collector;
-
-
-public interface GenericCoGrouper<V1, V2, O> extends Function {
+/**
+ * An special case of the {@link InvalidProgramException}, indicating that a part of the program
+ * that needs to be serializable (for shipping) is not serializable.
+ */
+public class NonSerializableUserCodeException extends InvalidProgramException {
+	
+	private static final long serialVersionUID = 2L;
 	
 	/**
-	 * This method must be implemented to provide a user implementation of a
-	 * coGroup. It is called for each two key-value pairs that share the same
-	 * key and come from different inputs.
-	 * 
-	 * @param records1 The records from the first input which were paired with the key.
-	 * @param records2 The records from the second input which were paired with the key.
-	 * @param out A collector that collects all output pairs.
+	 * Creates a new exception with no message.
 	 */
-	void coGroup(Iterator<V1> records1, Iterator<V2> records2, Collector<O> out) throws Exception;
+	public NonSerializableUserCodeException() {
+		super();
+	}
 	
+	/**
+	 * Creates a new exception with the given message.
+	 * 
+	 * @param message The exception message.
+	 */
+	public NonSerializableUserCodeException(String message) {
+		super(message);
+	}
 }

@@ -19,6 +19,7 @@ import org.apache.commons.lang3.Validate;
 import eu.stratosphere.api.common.io.FileOutputFormat;
 import eu.stratosphere.api.common.io.OutputFormat;
 import eu.stratosphere.api.java.aggregation.Aggregations;
+import eu.stratosphere.api.java.functions.CoGroupFunction;
 import eu.stratosphere.api.java.functions.FilterFunction;
 import eu.stratosphere.api.java.functions.FlatMapFunction;
 import eu.stratosphere.api.java.functions.GroupReduceFunction;
@@ -32,20 +33,27 @@ import eu.stratosphere.api.java.operators.AggregateOperator;
 import eu.stratosphere.api.java.operators.CoGroupOperator;
 import eu.stratosphere.api.java.operators.CoGroupOperator.CoGroupOperatorSets;
 import eu.stratosphere.api.java.operators.CrossOperator;
+import eu.stratosphere.api.java.operators.CrossOperator.DefaultCross;
 import eu.stratosphere.api.java.operators.CustomUnaryOperation;
 import eu.stratosphere.api.java.operators.DataSink;
 import eu.stratosphere.api.java.operators.FilterOperator;
 import eu.stratosphere.api.java.operators.FlatMapOperator;
 import eu.stratosphere.api.java.operators.Grouping;
+import eu.stratosphere.api.java.operators.JoinOperator;
 import eu.stratosphere.api.java.operators.JoinOperator.JoinHint;
 import eu.stratosphere.api.java.operators.JoinOperator.JoinOperatorSets;
 import eu.stratosphere.api.java.operators.Keys;
 import eu.stratosphere.api.java.operators.MapOperator;
+import eu.stratosphere.api.java.operators.ProjectOperator;
 import eu.stratosphere.api.java.operators.ProjectOperator.Projection;
 import eu.stratosphere.api.java.operators.ReduceGroupOperator;
 import eu.stratosphere.api.java.operators.ReduceOperator;
+import eu.stratosphere.api.java.operators.SortedGrouping;
 import eu.stratosphere.api.java.operators.UnionOperator;
+import eu.stratosphere.api.java.operators.UnsortedGrouping;
+import eu.stratosphere.api.java.record.functions.CrossFunction;
 import eu.stratosphere.api.java.tuple.Tuple;
+import eu.stratosphere.api.java.tuple.Tuple2;
 import eu.stratosphere.api.java.typeutils.InputTypeConfigurable;
 import eu.stratosphere.api.java.typeutils.TypeInformation;
 import eu.stratosphere.core.fs.FileSystem.WriteMode;
@@ -249,10 +257,6 @@ public abstract class DataSet<T> {
 //		return new DistinctOperator<T>(this, new Keys.SelectorFunctionKeys<T, K>(keyExtractor, getType()));
 //	}
 	
-//	public DistinctOperator<T> distinct(String fieldExpression) {
-//		return new DistinctOperator<T>(this, new Keys.ExpressionKeys<T>(fieldExpression, getType()));
-//	}
-	
 //	public DistinctOperator<T> distinct(int... fields) {
 //		return new DistinctOperator<T>(this, new Keys.FieldPositionKeys<T>(fields, getType(), true));
 //	}
@@ -265,42 +269,42 @@ public abstract class DataSet<T> {
 	 * Groups a {@link DataSet} using a {@link KeySelector} function. 
 	 * The KeySelector function is called for each element of the DataSet and extracts a single 
 	 *   key value on which the DataSet is grouped. </br>
-	 * This method returns a {@link Grouping} on which one of the following grouping transformation 
-	 *   needs to be applied to obtain a transformed DataSet. 
+	 * This method returns an {@link UnsortedGrouping} on which one of the following grouping transformation 
+	 *   can be applied. 
 	 * <ul>
-	 *   <li>{@link Grouping#aggregate(Aggregations, int)}
-	 *   <li>{@link Grouping#reduce(ReduceFunction)}
-	 *   <li>{@link Grouping#reduceGroup(GroupReduceFunction)}
+	 *   <li>{@link UnsortedGrouping#sortGroup(int, eu.stratosphere.api.common.operators.Order)} to get a {@link SortedGrouping}. 
+	 *   <li>{@link Grouping#aggregate(Aggregations, int)} to apply an Aggregate transformation.
+	 *   <li>{@link Grouping#reduce(ReduceFunction)} to apply a Reduce transformation.
+	 *   <li>{@link Grouping#reduceGroup(GroupReduceFunction)} to apply a GroupReduce transformation.
 	 * </ul>
 	 *  
 	 * @param keyExtractor The KeySelector function which extracts the key values from the DataSet on which it is grouped. 
-	 * @return A Grouping on which a transformation needs to be applied to obtain a transformed DataSet.
+	 * @return An UnsortedGrouping on which a transformation needs to be applied to obtain a transformed DataSet.
 	 * 
 	 * @see KeySelector
 	 * @see Grouping
+	 * @see UnsortedGrouping
+	 * @see SortedGrouping
 	 * @see AggregateOperator
 	 * @see ReduceOperator
 	 * @see GroupReduceOperator
 	 * @see DataSet
 	 */
-	public <K extends Comparable<K>> Grouping<T> groupBy(KeySelector<T, K> keyExtractor) {
-		return new Grouping<T>(this, new Keys.SelectorFunctionKeys<T, K>(keyExtractor, getType()));
+	public <K extends Comparable<K>> UnsortedGrouping<T> groupBy(KeySelector<T, K> keyExtractor) {
+		return new UnsortedGrouping<T>(this, new Keys.SelectorFunctionKeys<T, K>(keyExtractor, getType()));
 	}
-	
-//	public Grouping<T> groupBy(String fieldExpression) {
-//		return new Grouping<T>(this, new Keys.ExpressionKeys<T>(fieldExpression, getType()));
-//	}
 	
 	/**
 	 * Groups a {@link Tuple} {@link DataSet} using field position keys.<br/> 
 	 * <b>Note: Field position keys only be specified for Tuple DataSets.</b></br>
 	 * The field position keys specify the fields of Tuples on which the DataSet is grouped.
-	 * This method returns a {@link Grouping} on which one of the following grouping transformation 
-	 *   needs to be applied to obtain a transformed DataSet. 
+	 * This method returns an {@link UnsortedGrouping} on which one of the following grouping transformation 
+	 *   can be applied. 
 	 * <ul>
-	 *   <li>{@link Grouping#aggregate(Aggregations, int)}
-	 *   <li>{@link Grouping#reduce(ReduceFunction)}
-	 *   <li>{@link Grouping#reduceGroup(GroupReduceFunction)}
+	 *   <li>{@link UnsortedGrouping#sortGroup(int, eu.stratosphere.api.common.operators.Order)} to get a {@link SortedGrouping}. 
+	 *   <li>{@link Grouping#aggregate(Aggregations, int)} to apply an Aggregate transformation.
+	 *   <li>{@link Grouping#reduce(ReduceFunction)} to apply a Reduce transformation.
+	 *   <li>{@link Grouping#reduceGroup(GroupReduceFunction)} to apply a GroupReduce transformation.
 	 * </ul> 
 	 * 
 	 * @param fields One or more field positions on which the DataSet will be grouped. 
@@ -308,13 +312,15 @@ public abstract class DataSet<T> {
 	 * 
 	 * @see Tuple
 	 * @see Grouping
+	 * @see UnsortedGrouping
+	 * @see SortedGrouping
 	 * @see AggregateOperator
 	 * @see ReduceOperator
 	 * @see GroupReduceOperator
 	 * @see DataSet
 	 */
-	public Grouping<T> groupBy(int... fields) {
-		return new Grouping<T>(this, new Keys.FieldPositionKeys<T>(fields, getType(), false));
+	public UnsortedGrouping<T> groupBy(int... fields) {
+		return new UnsortedGrouping<T>(this, new Keys.FieldPositionKeys<T>(fields, getType(), false));
 	}
 	
 	// --------------------------------------------------------------------------------------------
@@ -419,22 +425,40 @@ public abstract class DataSet<T> {
 	// --------------------------------------------------------------------------------------------
 
 	/**
+	 * Continues a Join transformation and defines the {@link Tuple} fields of the second join 
+	 * {@link DataSet} that should be used as join keys.<br/>
+	 * <b>Note: Fields can only be selected as join keys on Tuple DataSets.</b><br/>
+	 * 
+	 * The resulting {@link DefaultJoin} wraps each pair of joining elements into a {@link Tuple2}, with 
+	 * the element of the first input being the first field of the tuple and the element of the 
+	 * second input being the second field of the tuple. 
+	 * 
+	 * @param fields The indexes of the Tuple fields of the second join DataSet that should be used as keys.
+	 * @return A DefaultJoin that represents the joined DataSet.
+	 */
+	
+	/**
 	 * Initiates a Cross transformation.<br/>
 	 * A Cross transformation combines the elements of two 
 	 *   {@link DataSet DataSets} into one DataSet. It builds all pair combinations of elements of 
-	 *   both DataSets, i.e., it builds a Cartesian product, and calls a {@link CrossFunction} for
-	 *   each pair of elements.</br>
-	 * The CrossFunction returns a exactly one element for each pair of input elements.</br>
-	 * This method returns a {@link CrossOperatorSets} on which 
-	 *   {@link CrossOperatorSets#with()} needs to be called to define the CrossFunction that 
-	 *   is applied.
+	 *   both DataSets, i.e., it builds a Cartesian product.
+	 * 
+	 * <p>
+	 * The resulting {@link DefaultCross} wraps each pair of crossed elements into a {@link Tuple2}, with 
+	 * the element of the first input being the first field of the tuple and the element of the 
+	 * second input being the second field of the tuple.
+	 * 
+	 * <p>
+	 * Call {@link DefaultCross.with(CrossFunction)} to define a {@link CrossFunction} which is called for
+	 * each pair of crossed elements. The CrossFunction returns a exactly one element for each pair of input elements.</br>
 	 * 
 	 * @param other The other DataSet with which this DataSet is crossed. 
-	 * @return A CrossOperatorSets to continue the definition of the Cross transformation.
+	 * @return A DefaultCross that returns a Tuple2 for each pair of crossed elements.
 	 * 
+	 * @see DefaultCross
 	 * @see CrossFunction
-	 * @see CrossOperatorSets
 	 * @see DataSet
+	 * @see Tuple2
 	 */
 	public <R> CrossOperator.DefaultCross<T, R> cross(DataSet<R> other) {
 		return new CrossOperator.DefaultCross<T, R>(this, other);
@@ -444,21 +468,26 @@ public abstract class DataSet<T> {
 	 * Initiates a Cross transformation.<br/>
 	 * A Cross transformation combines the elements of two 
 	 *   {@link DataSet DataSets} into one DataSet. It builds all pair combinations of elements of 
-	 *   both DataSets, i.e., it builds a Cartesian product, and calls a {@link CrossFunction} for
-	 *   each pair of elements.</br>
-	 * The CrossFunction returns a exactly one element for each pair of input elements.</br>
+	 *   both DataSets, i.e., it builds a Cartesian product.
 	 * This method also gives the hint to the optimizer that the second DataSet to cross is much
-	 *   smaller than the first one.</br>
-	 * This method returns a {@link CrossOperatorSets CrossOperatorSet} on which 
-	 *   {@link CrossOperatorSets#with()} needs to be called to define the CrossFunction that 
-	 *   is applied.
+	 *   smaller than the first one.
+	 *   
+	 * <p>
+	 * The resulting {@link DefaultCross} wraps each pair of crossed elements into a {@link Tuple2}, with 
+	 * the element of the first input being the first field of the tuple and the element of the 
+	 * second input being the second field of the tuple.
+	 *   
+	 * <p>
+	 * Call {@link DefaultCross.with(CrossFunction)} to define a {@link CrossFunction} which is called for
+	 * each pair of crossed elements. The CrossFunction returns a exactly one element for each pair of input elements.</br>
 	 * 
 	 * @param other The other DataSet with which this DataSet is crossed. 
-	 * @return A CrossOperatorSets to continue the definition of the Cross transformation.
+	 * @return A DefaultCross that returns a Tuple2 for each pair of crossed elements.
 	 * 
+	 * @see DefaultCross
 	 * @see CrossFunction
-	 * @see CrossOperatorSets
 	 * @see DataSet
+	 * @see Tuple2
 	 */
 	public <R> CrossOperator.DefaultCross<T, R> crossWithTiny(DataSet<R> other) {
 		return new CrossOperator.DefaultCross<T, R>(this, other);
@@ -468,21 +497,26 @@ public abstract class DataSet<T> {
 	 * Initiates a Cross transformation.<br/>
 	 * A Cross transformation combines the elements of two 
 	 *   {@link DataSet DataSets} into one DataSet. It builds all pair combinations of elements of 
-	 *   both DataSets, i.e., it builds a Cartesian product, and calls a {@link CrossFunction} for
-	 *   each pair of elements.</br>
-	 * The CrossFunction returns a exactly one element for each pair of input elements.</br>
+	 *   both DataSets, i.e., it builds a Cartesian product.
 	 * This method also gives the hint to the optimizer that the second DataSet to cross is much
-	 *   larger than the first one.</br>
-	 * This method returns a {@link CrossOperatorSets CrossOperatorSet} on which 
-	 *   {@link CrossOperatorSets#with()} needs to be called to define the CrossFunction that 
-	 *   is applied.
+	 *   larger than the first one.
+	 *   
+	 * <p>
+	 * The resulting {@link DefaultCross} wraps each pair of crossed elements into a {@link Tuple2}, with 
+	 * the element of the first input being the first field of the tuple and the element of the 
+	 * second input being the second field of the tuple.
+	 *   
+	 * <p>
+	 * Call {@link DefaultCross.with(CrossFunction)} to define a {@link CrossFunction} which is called for
+	 * each pair of crossed elements. The CrossFunction returns a exactly one element for each pair of input elements.</br>
 	 * 
 	 * @param other The other DataSet with which this DataSet is crossed. 
-	 * @return A CrossOperatorSets to continue the definition of the Cross transformation.
+	 * @return A DefaultCross that returns a Tuple2 for each pair of crossed elements.
 	 * 
+	 * @see DefaultCross
 	 * @see CrossFunction
-	 * @see CrossOperatorSets
 	 * @see DataSet
+	 * @see Tuple2
 	 */
 	public <R> CrossOperator.DefaultCross<T, R> crossWithHuge(DataSet<R> other) {
 		return new CrossOperator.DefaultCross<T, R>(this, other);
@@ -766,7 +800,7 @@ public abstract class DataSet<T> {
 	}
 	
 	/**
-	 * Processes a DataSet using an {@link OutputFormat}. This method adds a data sink to the program.
+	 * Emits a DataSet using an {@link OutputFormat}. This method adds a data sink to the program.
 	 * Programs may have multiple data sinks. A DataSet may also have multiple consumers (data sinks
 	 * or transformations) at the same time.
 	 * 

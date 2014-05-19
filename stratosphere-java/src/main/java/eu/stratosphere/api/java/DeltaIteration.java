@@ -16,6 +16,8 @@ package eu.stratosphere.api.java;
 
 import eu.stratosphere.api.common.aggregators.Aggregator;
 import eu.stratosphere.api.common.aggregators.AggregatorRegistry;
+import java.util.Arrays;
+import eu.stratosphere.api.common.InvalidProgramException;
 import eu.stratosphere.api.java.operators.Keys;
 import eu.stratosphere.api.java.typeutils.TypeInformation;
 
@@ -46,7 +48,7 @@ public class DeltaIteration<ST, WT> {
 	DeltaIteration(ExecutionEnvironment context, TypeInformation<ST> type, DataSet<ST> solutionSet, DataSet<WT> workset, Keys<ST> keys, int maxIterations) {
 		initialSolutionSet = solutionSet;
 		initialWorkset = workset;
-		solutionSetPlaceholder = new SolutionSetPlaceHolder<ST>(context, solutionSet.getType());
+		solutionSetPlaceholder = new SolutionSetPlaceHolder<ST>(context, solutionSet.getType(), this);
 		worksetPlaceholder = new WorksetPlaceHolder<WT>(context, workset.getType());
 		this.keys = keys;
 		this.maxIterations = maxIterations;
@@ -135,8 +137,19 @@ public class DeltaIteration<ST, WT> {
 	 * @param <ST> The type of the elements in the solution set.
 	 */
 	public static class SolutionSetPlaceHolder<ST> extends DataSet<ST>{
-		private SolutionSetPlaceHolder(ExecutionEnvironment context, TypeInformation<ST> type) {
+		
+		private final DeltaIteration<ST, ?> deltaIteration;
+		
+		private SolutionSetPlaceHolder(ExecutionEnvironment context, TypeInformation<ST> type, DeltaIteration<ST, ?> deltaIteration) {
 			super(context, type);
+			this.deltaIteration = deltaIteration;
+		}
+		
+		public void checkJoinKeyFields(int[] keyFields) {
+			int[] ssKeys = deltaIteration.keys.computeLogicalKeyPositions();
+			if (!Arrays.equals(ssKeys, keyFields)) {
+				throw new InvalidProgramException("The solution set must be joind with using the keys with which elements are identified.");
+			}
 		}
 	}
 
