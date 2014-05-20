@@ -1,6 +1,7 @@
 package eu.stratosphere.example.java.costmodel;
 
 import java.util.Iterator;
+
 import eu.stratosphere.api.common.ProgramDescription;
 import eu.stratosphere.api.common.aggregators.LongSumAggregator;
 import eu.stratosphere.api.java.DataSet;
@@ -12,13 +13,10 @@ import eu.stratosphere.api.java.functions.FlatMapFunction;
 import eu.stratosphere.api.java.functions.GroupReduceFunction;
 import eu.stratosphere.api.java.functions.JoinFunction;
 import eu.stratosphere.api.java.functions.MapFunction;
-import eu.stratosphere.api.java.operators.translation.JavaPlan;
 import eu.stratosphere.api.java.tuple.Tuple1;
 import eu.stratosphere.api.java.tuple.Tuple2;
-import eu.stratosphere.client.LocalExecutor;
 import eu.stratosphere.configuration.Configuration;
 import eu.stratosphere.util.Collector;
-
 
 /**
  * A Connected Components implementation to test the cost model functionality.
@@ -32,7 +30,6 @@ import eu.stratosphere.util.Collector;
 public class CostModelConnectedComponents implements ProgramDescription {
 	
 	private static final String UPDATED_ELEMENTS_AGGR = "updated.elements.aggr";
-	private static int bulkIterationFinish;
 
 	public static void main(String... args) throws Exception {
 		if (args.length < 6) {
@@ -53,23 +50,25 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		
 		DataSet<Tuple2<Long, Long>> verticesWithInitialId = env.readCsvFile(args[0]).types(Long.class).map(new DuplicateValue());
 		
-		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter('\t').types(Long.class, Long.class)
-				.flatMap(new InverseEdge());
+		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter('\t').types(Long.class, Long.class);
 		
-		DataSet<Tuple2<Long, Long>> result = doCostConnectedComponents(verticesWithInitialId, edges, maxIterations,
+		DataSet<Tuple2<Long, Long>> bulkResult = doBulkCostConnectedComponents(verticesWithInitialId, edges, maxIterations,
 				numVertices, avgDegree);
 		
-		result.writeAsCsv(args[2], "\n", " ");
+		DataSet<Tuple2<Long, Long>> mappedBulk = bulkResult.map(new DummyMap());
 		
-		JavaPlan plan = env.createProgramPlan("Cost CC");
-		LocalExecutor.execute(plan);
-//		env.execute("Cost Connected Components");
+//		bulkResult.writeAsCsv(args[2] + "_bulk", "\n", " ");		
+		
+		DataSet<Tuple2<Long, Long>> depResult = doDepCostConnectedComponents(mappedBulk, edges, maxIterations);
+		
+		depResult.writeAsCsv(args[2] + "_dep", "\n", " ");
+		
+		env.execute("Cost CC");
 		
 	}
 	
-	public static DataSet<Tuple2<Long, Long>> doCostConnectedComponents(
-			DataSet<Tuple2<Long, Long>> verticesWithInitialId, DataSet<Tuple2<Long, Long>> edges, int maxIterations,
-			int numVertices, double avgDegree) {
+	public static DataSet<Tuple2<Long, Long>> doBulkCostConnectedComponents(DataSet<Tuple2<Long, Long>> verticesWithInitialId, 
+			DataSet<Tuple2<Long, Long>> edges, int maxIterations, int numVertices, double avgDegree) {
 		
 		/**
 		 *  === start bulk iterations === 
@@ -91,11 +90,20 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		// close the bulk iteration
 		DataSet<Tuple2<Long, Long>> bulkResult = iteration.closeWith(changes);
 		
+		return bulkResult;
+		
+	}
+				
+		
+	public static DataSet<Tuple2<Long, Long>> doDepCostConnectedComponents(DataSet<Tuple2<Long, Long>> vertices, 
+			DataSet<Tuple2<Long, Long>> edges, int maxIterations) {
+		
 		/**
 		 *  === start dependency iterations === 
 		 */
+				
 		DeltaIteration<Tuple2<Long, Long>, Tuple2<Long, Long>> depIteration = 
-				bulkResult.iterateDelta(bulkResult, 2, 0);
+				vertices.iterateDelta(vertices, maxIterations, 0);
 				
 		DataSet<Tuple1<Long>> candidates = depIteration.getWorkset().join(edges).where(0).equalTo(0)
 				.projectSecond(1).types(Long.class);
@@ -114,7 +122,10 @@ public class CostModelConnectedComponents implements ProgramDescription {
 				verticesWithNewComponents.join(depIteration.getSolutionSet()).where(0).equalTo(0)
 				.flatMap(new MinimumIdFilter());
 		
-		return depIteration.closeWith(updatedComponentId, updatedComponentId);
+		DataSet<Tuple2<Long, Long>> depResult = depIteration.closeWith(updatedComponentId, updatedComponentId);
+		
+		return depResult;
+		
 	}
 	
 	/* == Bulk iteration classes == */
@@ -127,20 +138,6 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		@Override
 		public Tuple2<Long, Long> map(Tuple1<Long> value) throws Exception {
 			return new Tuple2<Long, Long>(value.f0, value.f0);
-		}
-	}
-	
-	/**
-	 * Adds the inverse edge to the set of edges
-	 */
-	public static final class InverseEdge extends FlatMapFunction<Tuple2<Long, Long>, Tuple2<Long, Long>> {
-
-		@Override
-		public void flatMap(Tuple2<Long, Long> edge,
-				Collector<Tuple2<Long, Long>> out) throws Exception {
-			out.collect(edge);
-			out.collect(new Tuple2<Long, Long>(edge.f1, edge.f0));
-			
 		}
 	}
 	
@@ -168,7 +165,6 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		public void open(Configuration conf) {
 			updatedElementsAggr = getIterationRuntimeContext().getIterationAggregator(UPDATED_ELEMENTS_AGGR);
 			int superstep = getIterationRuntimeContext().getSuperstepNumber();
-			bulkIterationFinish = superstep;
 			System.out.println("Bulk Iteration " + superstep);
 		}
 		
@@ -181,6 +177,14 @@ public class CostModelConnectedComponents implements ProgramDescription {
 			else {
 				out.collect(value.f1);
 			}
+		}
+	}
+	
+	public static final class DummyMap extends MapFunction<Tuple2<Long, Long>, Tuple2<Long, Long>> {
+
+		@Override
+		public Tuple2<Long, Long> map(Tuple2<Long, Long> value) throws Exception {
+			return value;
 		}
 	}
 	
