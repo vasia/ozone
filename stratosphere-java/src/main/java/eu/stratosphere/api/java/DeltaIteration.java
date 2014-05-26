@@ -19,7 +19,7 @@ import eu.stratosphere.api.common.aggregators.AggregatorRegistry;
 import java.util.Arrays;
 import eu.stratosphere.api.common.InvalidProgramException;
 import eu.stratosphere.api.java.operators.Keys;
-import eu.stratosphere.api.java.typeutils.TypeInformation;
+import eu.stratosphere.types.TypeInformation;
 
 /**
  * The DeltaIteration represents the start of a delta iteration. It is created from the DataSet that
