@@ -138,20 +138,6 @@ object IterateMacros {
           override def getUDF = udf
 
         }
-
-        override def setTerminationCriterion(criterion: Operator) {
-          val mapper = new MapOperatorBase[TerminationCriterionMapper](classOf[TerminationCriterionMapper],
-            "Termination Criterion Aggregation Wrapper") with OneInputScalaOperator[TerminationItem,
-            Nothing] with Serializable {
-            val udf = new UDF1[TerminationItem, Nothing](terminationUDT, NothingUDT)
-            override def getUDF = udf
-          }
-          mapper.setInput(criterion)
-          terminationCriterion = mapper
-          getAggregators.registerAggregationConvergenceCriterion(BulkIteration.TERMINATION_CRITERION_AGGREGATOR_NAME,
-            new TerminationCriterionAggregator, new TerminationCriterionAggregationConvergence)
-        }
-
         override def getPartialSolution: Operator[Record] = inputPlaceHolder2.asInstanceOf[Operator[Record]]
       }
 

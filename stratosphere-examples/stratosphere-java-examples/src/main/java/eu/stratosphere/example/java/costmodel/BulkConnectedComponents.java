@@ -60,8 +60,8 @@ public class BulkConnectedComponents implements ProgramDescription {
 		// apply the step logic: join with the edges, select the minimum neighbor, update the component if the candidate is smaller
 		DataSet<Tuple2<Long, Long>> changes = iteration.join(edges).where(0).equalTo(0).with(new NeighborWithComponentIDJoin())
 														.groupBy(0).aggregate(Aggregations.MIN, 1)
-		                                                .join(iteration).where(0).equalTo(0)
-		                                                .flatMap(new ComponentIdFilter());		
+														.join(iteration).where(0).equalTo(0)
+														.flatMap(new ComponentIdFilter());		
 		// close the bulk iteration
 		DataSet<Tuple2<Long, Long>> bulkResult = iteration.closeWith(changes);
 		

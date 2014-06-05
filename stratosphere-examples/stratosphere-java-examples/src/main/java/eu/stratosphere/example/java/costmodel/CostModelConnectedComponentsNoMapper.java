@@ -10,10 +10,10 @@ import eu.stratosphere.api.java.ExecutionEnvironment;
 import eu.stratosphere.api.java.IterativeDataSet;
 import eu.stratosphere.api.java.aggregation.Aggregations;
 import eu.stratosphere.api.java.functions.FlatMapFunction;
+import eu.stratosphere.api.java.functions.FunctionAnnotation.ConstantFields;
 import eu.stratosphere.api.java.functions.GroupReduceFunction;
 import eu.stratosphere.api.java.functions.JoinFunction;
 import eu.stratosphere.api.java.functions.MapFunction;
-import eu.stratosphere.api.java.functions.FunctionAnnotation.ConstantFields;
 import eu.stratosphere.api.java.tuple.Tuple1;
 import eu.stratosphere.api.java.tuple.Tuple2;
 import eu.stratosphere.configuration.Configuration;
@@ -28,7 +28,7 @@ import eu.stratosphere.util.Collector;
  *
  */
 @SuppressWarnings("serial")
-public class CostModelConnectedComponents implements ProgramDescription {
+public class CostModelConnectedComponentsNoMapper implements ProgramDescription {
 	
 	private static final String UPDATED_ELEMENTS_AGGR = "updated.elements.aggr";
 
@@ -54,15 +54,13 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		DataSet<Tuple2<Long, Long>> edges = env.readCsvFile(args[1]).fieldDelimiter('\t').types(Long.class, Long.class);
 		
 		DataSet<Tuple2<Long, Long>> bulkResult = doBulkCostConnectedComponents(verticesWithInitialId, edges, maxIterations,
-				numVertices, avgDegree);
+				numVertices, avgDegree);		
 		
-		DataSet<Tuple2<Long, Long>> mappedBulk = bulkResult.map(new DummyMap());
-		
-		DataSet<Tuple2<Long, Long>> depResult = doDepCostConnectedComponents(mappedBulk, edges, maxIterations);
+		DataSet<Tuple2<Long, Long>> depResult = doDepCostConnectedComponents(bulkResult	, edges, maxIterations);
 		
 		depResult.writeAsCsv(args[2] + "_dep", "\n", " ");
 		
-		env.execute("Cost CC");
+		env.execute("Cost CC (no mapper)");
 		
 	}
 	
@@ -180,15 +178,8 @@ public class CostModelConnectedComponents implements ProgramDescription {
 		}
 	}
 	
-	public static final class DummyMap extends MapFunction<Tuple2<Long, Long>, Tuple2<Long, Long>> {
-
-		@Override
-		public Tuple2<Long, Long> map(Tuple2<Long, Long> value) throws Exception {
-			return value;
-		}
-	}
-	
 	/* == Dependency iteration classes == */
+
 	@ConstantFields("0")
 	public static final class RemoveDuplicatesReduce extends GroupReduceFunction<Tuple1<Long>, Tuple1<Long>> {
 		
